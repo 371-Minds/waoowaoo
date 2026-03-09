@@ -1,806 +1,457 @@
-I'll help you analyze the GitHub repository and create a comprehensive prompt for GitHub Copilot. Let me start by taking a screenshot of the current page and then navigating through the key files.Good! I can see the repository structure. This is an AI video production platform with various folders including `.husky`, `images`, `lib/prompts`, `messages`, `prisma`, `public`, `scripts`, `src`, `standards`, and `tests`. Let me now check the README file to understand the architecture better.Let me continue scrolling to see the README content below.Perfect! I can see more files now including README.md, Dockerfile, docker-compose.yml, and various configuration files. The project is primarily TypeScript (97%) with some JavaScript. Let me click on the README.md to understand the architecture.Let me wait for the page to load and then try clicking on README.md again.Excellent! Now I can see the README.md file. This is "waoowaoo AI 影视 Studio" - an AI video production platform. Let me scroll down to read more about the architecture and features.Good! I can see this is an AI-based video production tool that supports creating shorts, angles, and scenes from text/scripts. Let me continue scrolling to see more technical details about the architecture.Great! I can see the features section (功能特性):
-- AI script splitting - automatically parses novels, scripts, scenes, shots
-- Angles & scene generation - AI generates images for characters and scenes
-- Split-screen video production - automatically generates split-screen videos
-- AI dubbing - multi-angle audio synthesis
-- Multi-language support - Chinese/English, one-click switching
+# waoowaoo Refactor Implementation Plan
 
-Let me continue scrolling to see the technical architecture and setup instructions.Perfect! I can see the deployment methods using Docker. Let me continue scrolling to see more about the architecture and configuration.Let me scroll down more to see the configuration and environment variables section.Let me navigate back to the repository root to check the src folder structure and configuration files.Perfect! Now I'm back at the repository root. I can see the folder structure clearly. Let me click on the `src` folder to understand the source code architecture.Excellent! I can see the src folder structure with:
-- app
-- assets/fonts
-- components
-- contexts
-- features/video-editor
-- hooks/common
-- i18n
-- lib
-- pages
-- styles
-- types
-- i18n.ts
-- instrumentation.ts
+This document replaces the earlier prompt-style notes with an implementation plan grounded in the current repository layout.
 
-Let me check the `app` folder to understand the application structure better.Good! I can see the app folder has:
-- [locale]
-- api
-- m/[publicId]
-- globals.css
+## Refactor scope
 
-Let me check the `api` folder to understand the current API structure.Perfect! I can see the API structure with multiple endpoints:
-- admin/download-logs
-- asset-hub
-- auth
-- cos/image
-- files/[...path]
-- novel-promotion/[projectId]
-- projects
-- runs
-- sse
-- storage/sign
-- system/boot-id
-- task-target-states
-- tasks
+The target refactor has three parallel goals:
 
-Let me scroll down to see if there are more API endpoints.Good! Now let me navigate back to check the lib folder to understand the library structure and any existing SDK or service integrations.I accidentally clicked on public. Let me navigate to the lib folder instead. Let me click on lib in the left sidebar.Good, I can see the lib folder in the left sidebar. Let me click on it.I clicked on images by mistake. Let me navigate back to the root and find the lib folder. Let me click on waoowaoo in the breadcrumb.Perfect! Now I'm back at the root. I can see the lib/prompts folder. Let me click on it to see the prompts structure.Great! I can see the prompts folder structure with:
-- character-reference
-- novel-promotion
-- skills
-- proxy.ts
+1. Extract the current monolithic workflow/runtime logic into domain-oriented MCP services with typed SDK clients.
+2. Expand the existing OpenAI-compatible layer into a production-ready `/api/v1` surface.
+3. Add Render Network support for heavy rendering workloads without breaking the existing local pipeline.
 
-Now let me navigate to the src folder to check the lib directory there. Let me click on src in the left sidebar.Perfect! Now I can see the src folder structure. Let me click on the lib folder to see what's inside.Excellent! I can see the lib folder has many important subdirectories:
-- ai-runtime
-- asset-utils
-- assets
-- assistant-platform
-- async
-- billing
-- contracts
-- errors
-- generators
-- image-generation
-- lipsync
-- llm-observe
-- llm
-
-Let me scroll down to see more folders.Great! I can see more folders:
-- logging
-- media
-- migrations
-- model-capabilities
-- model-gateway
-- model-pricing
-
-Let me continue scrolling to see all the folders.Perfect! I can see more folders:
-- novel-promotion
-- prompt-i18n
-- providers
-- query
-- run-runtime
-- sse
-- storage
-
-Let me continue scrolling to see the rest.Excellent! I can see the remaining folders and files:
-- task
-- user-api
-- voice
-- workers
-- workflows
-- workspace
-- api-auth.ts
-- api-config.ts
-
-Now let me check the package.json to understand the dependencies and tech stack. Let me navigate back to the root.Perfect! I can see the repository root with a good overview. I can see:
-- Tags: automation, storyboard, ai-agents, video-generation, film-production, ai-agent, generative-ai, short-drama
-- The project is about controllable film & video production from shorts to live-action with Hollywood-standard workflows
-- Latest release: v0.3.0 update (2 days ago)
-
-Let me scroll down to see the package.json file.Good! I can see more files including:
-- .eslintrc.json
-- .gitignore
-- .nvmrc
-- .tmp_check_task.ts
-- CHANGELOG.md
-- Dockerfile
-- README.md
-- README_en.md
-
-And the languages breakdown: TypeScript 97.0%, JavaScript 2.3%, Other 0.7%
-
-Let me continue scrolling to find package.json.I can see more files:
-- caddyfile
-- debug-request.json
-- docker-compose.test.yml
-- docker-compose.yml
-- eslint.config.mjs
-- extract_chinese.py
-- middleware.ts
-
-Let me continue scrolling to find package.json.Perfect! I can see package.json in the list. Let me click on it to view the dependencies and tech stack.Excellent! I can see the package.json file. I can see:
-- Name: "waoowaoo"
-- Version: "0.3.0"
-- Private: true
-- Engines: node ">=18.18.0", npm ">=9.0.0"
-- Scripts including postinstall, prepare, dev, devnext, devworker, devwatchdog, devboard, build, build:turbo, start, start:next, start:worker, start:watchdog, start:board, stats:errors, check-api-handler
-
-Let me scroll down to see the dependencies.The page didn't scroll. Let me try scrolling within the code viewer area.The content is still the same. Let me use the keyboard to scroll down in the code viewer.The page is not scrolling. Let me try using the Raw button to view the full file content.Perfect! Now I can see the raw package.json file. I can see many scripts and checks. Let me scroll down to see the dependencies section.Good! I can see more scripts including test scripts for billing, integration, behavior, etc. Let me continue scrolling to see the dependencies section.Excellent! Now I can see the dependencies section starting. I can see:
-- @ai-sdk/google
-- @ai-sdk/openai
-- @ai-sdk/anthropic
-- @aws-sdk/client-s3
-- @aws-sdk/s3-request-presigner
-- @bull-board/api
-- @bull-board/express
-- @dnd-kit/core
-- @dnd-kit/sortable
-- @dnd-kit/utilities
-- @google/genai
-- @langchain/langraph
-- @next-auth/prisma-adapter
-- @openrouter/sdk
-- @prisma/client
-- @remotion/cli
-- @remotion/player
-- @tanstack/react-query
-
-Let me continue scrolling to see more dependencies.Perfect! I can see more dependencies including:
-- @types/bcryptjs
-- @types/express
-- @vercel/og
-- ai
-- axios
-- bcryptjs
-- bullmq
-- cos-nodejs-sdk-v5
-- express
-- ffmpeg-static
-- ioredis
-- jsonrepair
-- jszp
-- lru-cache
-- lucide-react
-- mammoth
-- nanoid
-- next
-- next-auth
-- next-intl
-- openai
-- p-queue
-- react
-- react-dom
-- react-grab
-- react-hot-toast
-- replicate
-- sharp
-- undici
-- zod
-
-Now let me navigate back to check if there are any architecture documentation files. Let me go back to the repository root.Good! I'm back at the repository root. I can see the folder structure. Let me check the "standards" folder which might contain architecture documentation.Perfect! I can see the standards folder contains:
-- capabilities
-- pricing
-- prompt-canary
-
-These folders likely contain configuration and standards for the AI models and capabilities. Let me check the docker-compose.yml to understand the infrastructure setup. Let me navigate back to the root.Good! I'm back at the root. Now let me scroll down to find the docker-compose.yml file to understand the infrastructure setup.Perfect! I can see the docker-compose.yml file. Let me click on it to view the infrastructure setup.Excellent! I can see the docker-compose.yml file showing the infrastructure setup. I can see:
-- MySQL database (mysql:8.0)
-- Redis (redis:7-alpine)
-
-Let me scroll down to see more services.The page didn't scroll. Let me try clicking on the Raw button to see the full file.Perfect! Now I can see the full docker-compose.yml file. I can see three services:
-1. **MySQL** - Database service
-2. **Redis** - Cache/queue service
-3. **MinIO** - Object storage service (S3-compatible)
-
-Let me scroll down to see if there are more services.Excellent! I can see the **App** service (Next.js + Workers) which is the main application. I can see it uses:
-- Database URL connecting to MySQL
-- Redis configuration
-- MinIO configuration for object storage
-
-Let me continue scrolling to see more configuration.Perfect! I can see more configuration including:
-- NextAuth configuration
-- Worker configuration with queue concurrency settings
-- Bull Board for queue monitoring
-- Logging configuration
-- Billing mode
-- LLM stream settings
-- Port mappings (3000:3000, 3010:3010)
-- Volume mounts for data and logs
-
-Now I have a comprehensive understanding of the architecture. Let me check one more important file - let me look at the .env.example to understand the environment variables. Let me navigate back to the repository.Perfect! I can see the .env.example file showing:
-- Database URL configuration
-- Storage configuration (MinIO/S3/local/COS options)
-- MinIO configuration
-- COS (Cloud Object Storage) configuration
-- NextAuth configuration
-
-Let me click on Raw to see the full file.The page didn't change. Let me try scrolling down to see more environment variables in the current view.Good! I can see more configuration. Let me continue scrolling to see the AI model configurations.Perfect! I can see more configuration including:
-- Internal task token and API encryption key
-- Redis configuration
-- Worker configuration (watchdog interval, task heartbeat timeout, queue concurrency settings)
-- Bull Board configuration
-
-Let me continue scrolling to see the AI model provider configurations.Good! I can see logging configuration. Let me continue scrolling to see the AI model provider configurations.Perfect! I can see:
-- Billing mode configuration
-- LLM stream ephemeral enabled
-
-Let me continue scrolling to see the AI provider configurations.The page is not scrolling further. Let me use the get_tab_content function to get the full content of the .env.example file.Perfect! Now I have a comprehensive understanding of the architecture. Let me check one more important file - let me look at the model-gateway to understand how AI models are currently integrated. Let me navigate to that folder.Excellent! I can see the model-gateway folder structure with:
-- openai-compat (folder)
-- index.ts
-- llm.ts
-- router.ts
-- types.ts
-
-This is very important - there's already an `openai-compat` folder which suggests some OpenAI compatibility work. Let me check that folder.Perfect! I can see the openai-compat folder has several files:
-- chat.ts
-- common.ts
-- image.ts
-- index.ts
-- responses.ts
-- template-image.ts
-- template-video.ts
-- video.ts
-
-This shows there's already some OpenAI compatibility layer being built. Now I have enough information to create a comprehensive prompt for GitHub Copilot. Let me create a detailed document with all the findings and the prompt.
-
-Based on my comprehensive analysis of the waoowaoo repository, I now have enough information to create a detailed prompt for GitHub Copilot. Let me compile this into a comprehensive document.
-
-## Summary of Current Architecture:
-
-**Technology Stack:**
-- **Frontend/Backend**: Next.js (TypeScript 97%, JavaScript 2.3%)
-- **Database**: MySQL 8.0 (via Prisma ORM)
-- **Cache/Queue**: Redis 7 with BullMQ for task queues
-- **Storage**: MinIO (S3-compatible object storage)
-- **AI SDKs**: @ai-sdk/openai, @ai-sdk/google, @ai-sdk/anthropic, @openrouter/sdk
-- **Video Processing**: Remotion, FFmpeg
-- **Authentication**: NextAuth.js
-
-**Current Architecture Components:**
-1. **API Layer** (`src/app/api/`): REST endpoints for projects, tasks, runs, assets, storage, etc.
-2. **Model Gateway** (`src/lib/model-gateway/`): Abstraction layer for AI models with existing `openai-compat` folder
-3. **Workers** (`src/lib/workers/`): Background task processing with BullMQ queues (image, video, voice, text)
-4. **AI Runtime** (`src/lib/ai-runtime/`): AI agent execution environment
-5. **Providers** (`src/lib/providers/`): Integration with various AI services
-6. **Workflows** (`src/lib/workflows/`): Orchestration of AI video production pipelines
-
-**Key Features:**
-- AI script splitting and parsing
-- Character and scene generation
-- Split-screen video production
-- AI dubbing with multi-language support
-- Asset management and storage
-
-Now let me create the comprehensive GitHub Copilot prompt:
+The safest path is **incremental extraction**, not a rewrite. The current task system, Prisma models, and project domain types are already valuable stable contracts and should remain the backbone of the migration.
 
 ---
 
-# GitHub Copilot Architectural Refactoring Prompt
+## 1. Current codebase map
 
-## Project Context
-**Repository**: saturndec/waoowaoo  
-**Current Version**: v0.3.0  
-**Project Type**: Industrial-grade AI video production platform for controllable film & video production
+### Stable core that should remain the orchestration backbone
 
-## Current Architecture Overview
+| Area | Existing files | Why it should stay central |
+| --- | --- | --- |
+| Task contracts | `src/lib/task/types.ts`, `src/lib/task/queues.ts`, `src/lib/task/service.ts`, `src/lib/task/publisher.ts`, `src/lib/task/reconcile.ts` | Already defines task lifecycle, queue routing, SSE payload shape, and retry semantics. |
+| Worker lifecycle | `src/lib/workers/index.ts`, `src/lib/workers/shared.ts`, `src/lib/workers/user-concurrency-gate.ts` | Already centralizes worker startup, shutdown, retry handling, and concurrency rules. |
+| Run orchestration | `src/lib/run-runtime/*` | Provides graph execution and pipeline abstractions that can stay as the application-side orchestration layer. |
+| Domain types | `src/types/project.ts`, `src/types/character-profile.ts`, `src/types/storyboard-types.ts` | Existing project/storyboard/media shapes should remain the source of truth for shared types. |
+| Persistence | `prisma/schema.prisma` | Current tables encode project, media, storyboard, voice, and task state. Changes should be additive. |
 
-### Technology Stack
-- **Framework**: Next.js with TypeScript (App Router)
-- **Database**: MySQL 8.0 with Prisma ORM
-- **Cache/Queue**: Redis 7 + BullMQ for distributed task processing
-- **Storage**: MinIO (S3-compatible object storage)
-- **AI Integration**: Multiple SDKs (@ai-sdk/openai, @ai-sdk/google, @ai-sdk/anthropic, @openrouter/sdk)
-- **Video Processing**: Remotion + FFmpeg
-- **Authentication**: NextAuth.js
+### Current domain modules that are candidates for service extraction
 
-### Current Directory Structure
-```
-src/
-├── app/api/          # REST API endpoints
-├── lib/
-│   ├── ai-runtime/   # AI agent execution
-│   ├── model-gateway/ # AI model abstraction (has openai-compat folder)
-│   ├── providers/    # AI service integrations
-│   ├── workers/      # BullMQ background workers
-│   ├── workflows/    # Video production orchestration
-│   ├── image-generation/
-│   ├── voice/
-│   ├── lipsync/
-│   └── storage/
-```
+| Domain | Existing files/directories |
+| --- | --- |
+| Script/text processing | `src/lib/ai-runtime/*`, `src/lib/workflows/story-to-script/graph.ts`, `src/lib/novel-promotion/story-to-script/*`, `src/lib/workers/handlers/story-to-script.ts`, `analyze-novel.ts`, `episode-split.ts`, `screenplay-convert.ts` |
+| Storyboard/video orchestration | `src/lib/workflows/script-to-storyboard/graph.ts`, `src/lib/novel-promotion/script-to-storyboard/*`, `src/lib/workers/video.worker.ts`, `src/lib/workers/handlers/script-to-storyboard.ts`, `clips-build.ts` |
+| Image generation | `src/lib/image-generation/*`, `src/lib/generators/*`, `src/lib/workers/image.worker.ts`, image-related handlers under `src/lib/workers/handlers/` |
+| Voice/audio | `src/lib/voice/*`, `src/lib/lipsync/*`, `src/lib/workers/voice.worker.ts`, `src/lib/workers/handlers/voice-*` |
+| Asset/storage | `src/lib/storage/*`, `src/lib/asset-utils/*`, `src/app/api/asset-hub/**/route.ts` |
+| Model gateway / OpenAI compatibility | `src/lib/model-gateway/*`, `src/lib/llm/*`, `src/lib/generator-api.ts`, `src/lib/api-config.ts` |
 
-### Current Infrastructure (docker-compose.yml)
-- MySQL database service
-- Redis for caching and queues
-- MinIO for object storage
-- Main app service (Next.js + Workers combined)
+### Existing tests that should anchor the migration
 
-### Current Queue System
-- Separate queues for: IMAGE, VIDEO, VOICE, TEXT processing
-- Configurable concurrency per queue type
-- Bull Board for queue monitoring (port 3010)
-- Watchdog system for task health monitoring
-
-## Architectural Refactoring Goals
-
-### 1. Lightweight Architecture with SDKs/MCP Servers
-
-**Objective**: Refactor the monolithic architecture to use Model Context Protocol (MCP) servers and lightweight SDKs for better modularity, scalability, and maintainability.
-
-**Key Changes Needed**:
-
-#### A. MCP Server Architecture
-- **Separate MCP servers** for different capabilities:
-  - **Script Processing MCP Server**: Handle script parsing, scene splitting, character extraction
-  - **Image Generation MCP Server**: Manage image generation workflows (characters, scenes, storyboards)
-  - **Video Production MCP Server**: Handle video composition, editing, split-screen generation
-  - **Voice/Audio MCP Server**: Manage TTS, dubbing, lipsync operations
-  - **Asset Management MCP Server**: Handle storage, retrieval, and asset hub operations
-
-- **MCP Server Communication**:
-  - Each MCP server should expose standardized tools/resources via MCP protocol
-  - Use JSON-RPC 2.0 for inter-server communication
-  - Implement server discovery and health checking
-  - Support both stdio and SSE transport layers
-
-- **Refactor existing lib/ modules** into standalone MCP servers:
-  - Extract `src/lib/ai-runtime/` → Script Processing MCP Server
-  - Extract `src/lib/image-generation/` → Image Generation MCP Server
-  - Extract `src/lib/workflows/` + video logic → Video Production MCP Server
-  - Extract `src/lib/voice/` + `src/lib/lipsync/` → Voice/Audio MCP Server
-  - Extract `src/lib/storage/` + `src/lib/asset-utils/` → Asset Management MCP Server
-
-#### B. Lightweight SDK Layer
-- **Create client SDKs** for each MCP server:
-  - TypeScript SDK for web/Node.js clients
-  - Python SDK for ML/AI integrations
-  - REST wrapper SDK for third-party integrations
-
-- **SDK Features**:
-  - Connection pooling and retry logic
-  - Request/response validation with Zod schemas
-  - Streaming support for long-running operations
-  - Built-in error handling and logging
-  - Type-safe interfaces matching MCP server capabilities
-
-- **Decouple worker processes**:
-  - Workers should communicate with MCP servers via SDKs
-  - Remove direct dependencies on internal lib/ modules
-  - Implement worker-specific SDK configurations
-
-#### C. Infrastructure Changes
-- **Docker Compose Updates**:
-  - Add separate services for each MCP server
-  - Configure service discovery (e.g., using Docker networks)
-  - Add health checks for each MCP server
-  - Implement graceful shutdown and restart policies
-
-- **Queue System Optimization**:
-  - Maintain BullMQ but route tasks to appropriate MCP servers
-  - Implement task routing logic based on capability requirements
-  - Add queue-level retry and dead-letter handling per MCP server
-
-### 2. OpenAI-Compatible API Format
-
-**Objective**: Implement comprehensive OpenAI-compatible API endpoints to enable third-party integrations and standard AI tooling compatibility.
-
-**Key Changes Needed**:
-
-#### A. Expand OpenAI-Compat Layer
-- **Leverage existing** `src/lib/model-gateway/openai-compat/` structure
-- **Implement missing OpenAI API endpoints**:
-  - `/v1/chat/completions` - For script generation, dialogue creation
-  - `/v1/completions` - For text completion tasks
-  - `/v1/images/generations` - For character/scene image generation
-  - `/v1/audio/speech` - For TTS and dubbing
-  - `/v1/audio/transcriptions` - For audio-to-text
-  - `/v1/embeddings` - For semantic search in scripts/assets
-  - `/v1/models` - List available models and capabilities
-
-#### B. Custom Extensions for Video Production
-- **Add waoowaoo-specific endpoints** following OpenAI format patterns:
-  - `/v1/videos/generations` - Generate videos from scripts
-  - `/v1/videos/edits` - Edit existing videos
-  - `/v1/storyboards/generations` - Create storyboards
-  - `/v1/scenes/generations` - Generate individual scenes
-  - `/v1/projects` - Project management (CRUD operations)
-
-- **Request/Response Format**:
-  - Follow OpenAI's JSON schema conventions
-  - Support streaming responses with SSE
-  - Implement proper error codes and messages
-  - Add `x-waoowaoo-*` custom headers for extended metadata
-
-#### C. Authentication & Rate Limiting
-- **API Key Management**:
-  - Generate OpenAI-compatible API keys (sk-...)
-  - Store keys securely with encryption
-  - Support multiple keys per user/project
-
-- **Rate Limiting**:
-  - Implement token-based rate limiting
-  - Add usage tracking per API key
-  - Support tier-based limits (free, pro, enterprise)
-
-#### D. API Documentation
-- **OpenAPI/Swagger Specification**:
-  - Generate OpenAPI 3.0 spec for all endpoints
-  - Include examples for each endpoint
-  - Document custom extensions clearly
-  - Provide Postman collection
-
-### 3. Render Network Integration
-
-**Objective**: Integrate with Render Network infrastructure for distributed, decentralized rendering and compute resources.
-
-**Key Changes Needed**:
-
-#### A. Render Network Client Integration
-- **Add Render Network SDK**:
-  - Install and configure Render Network client libraries
-  - Implement authentication with Render Network
-  - Set up wallet integration for RNDR token payments
-
-- **Job Submission Layer**:
-  - Create abstraction layer for submitting render jobs
-  - Map waoowaoo tasks to Render Network job formats
-  - Handle job lifecycle (submit, monitor, retrieve, cancel)
-
-#### B. Hybrid Rendering Strategy
-- **Intelligent Job Routing**:
-  - Implement decision logic: local vs. Render Network
-  - Consider factors: job complexity, queue depth, cost, urgency
-  - Support fallback to local rendering if Render Network unavailable
-
-- **Job Types for Render Network**:
-  - Heavy video rendering (4K, complex effects)
-  - Batch image generation (large storyboards)
-  - 3D scene rendering (if applicable)
-  - Long-duration video processing
-
-#### C. Storage Integration
-- **Asset Transfer**:
-  - Upload source assets to Render Network-compatible storage
-  - Support IPFS for decentralized asset storage
-  - Implement efficient asset caching strategy
-  - Download rendered outputs back to MinIO/local storage
-
-- **Storage Configuration**:
-  - Add IPFS node configuration
-  - Implement pinning service integration
-  - Support hybrid storage (local + IPFS)
-
-#### D. Cost Management
-- **RNDR Token Handling**:
-  - Implement wallet balance checking
-  - Add cost estimation before job submission
-  - Track rendering costs per project/user
-  - Support automatic top-up or alerts for low balance
-
-- **Billing Integration**:
-  - Extend existing `BILLING_MODE` to support Render Network costs
-  - Add cost tracking in database schema
-  - Generate cost reports per project
-
-#### E. Monitoring & Observability
-- **Render Network Job Monitoring**:
-  - Poll job status from Render Network
-  - Update task status in local database
-  - Implement webhooks for job completion notifications
-  - Add Render Network metrics to Bull Board or separate dashboard
-
-- **Performance Metrics**:
-  - Track render times: local vs. Render Network
-  - Monitor cost efficiency
-  - Measure quality consistency
-  - Alert on failed Render Network jobs
-
-## Implementation Guidelines
-
-### Phase 1: MCP Server Extraction (Weeks 1-3)
-1. **Define MCP server boundaries** and interfaces
-2. **Create base MCP server template** with common functionality
-3. **Extract Script Processing MCP Server** first (lowest dependencies)
-4. **Refactor workers** to use Script Processing SDK
-5. **Repeat for other MCP servers** in dependency order
-6. **Update docker-compose.yml** with new services
-7. **Test inter-server communication** and error handling
-
-### Phase 2: OpenAI-Compatible API (Weeks 4-5)
-1. **Audit existing** `openai-compat` implementation
-2. **Implement core OpenAI endpoints** (/v1/chat/completions, /v1/images/generations)
-3. **Add custom video endpoints** following OpenAI patterns
-4. **Implement API key management** and authentication
-5. **Add rate limiting** and usage tracking
-6. **Generate OpenAPI documentation**
-7. **Create SDK examples** for common use cases
-
-### Phase 3: Render Network Integration (Weeks 6-8)
-1. **Set up Render Network account** and obtain credentials
-2. **Integrate Render Network SDK** into codebase
-3. **Implement job submission** for video rendering
-4. **Add IPFS storage support** for asset transfer
-5. **Create hybrid routing logic** (local vs. Render Network)
-6. **Implement cost tracking** and wallet management
-7. **Add monitoring dashboard** for Render Network jobs
-8. **Test end-to-end workflow** with real render jobs
-
-### Code Organization Principles
-- **Separation of Concerns**: Each MCP server handles one domain
-- **Interface-Driven Design**: Define clear contracts between components
-- **Backward Compatibility**: Maintain existing API endpoints during transition
-- **Configuration-Driven**: Use environment variables for all integrations
-- **Error Resilience**: Implement circuit breakers and fallback mechanisms
-- **Observability**: Add comprehensive logging and metrics
-- **Testing**: Unit tests for SDKs, integration tests for MCP servers
-
-### Environment Variables to Add
-```bash
-# MCP Server Configuration
-MCP_SCRIPT_SERVER_URL=http://localhost:4001
-MCP_IMAGE_SERVER_URL=http://localhost:4002
-MCP_VIDEO_SERVER_URL=http://localhost:4003
-MCP_VOICE_SERVER_URL=http://localhost:4004
-MCP_ASSET_SERVER_URL=http://localhost:4005
-MCP_TRANSPORT=sse  # or stdio
-
-# OpenAI-Compatible API
-OPENAI_COMPAT_ENABLED=true
-OPENAI_COMPAT_BASE_URL=/v1
-API_KEY_ENCRYPTION_SECRET=<secret>
-RATE_LIMIT_TIER=pro  # free, pro, enterprise
-
-# Render Network
-RENDER_NETWORK_ENABLED=true
-RENDER_NETWORK_API_KEY=<key>
-RENDER_NETWORK_WALLET_ADDRESS=<address>
-RENDER_NETWORK_WALLET_PRIVATE_KEY=<key>
-RENDER_NETWORK_IPFS_GATEWAY=https://ipfs.io
-RENDER_NETWORK_JOB_TIMEOUT_MS=3600000
-RENDER_NETWORK_MIN_BALANCE_ALERT=100  # RNDR tokens
-RENDER_NETWORK_AUTO_ROUTE_THRESHOLD=high  # low, medium, high
-```
-
-### Database Schema Changes
-```sql
--- API Keys table
-CREATE TABLE api_keys (
-  id VARCHAR(36) PRIMARY KEY,
-  key_hash VARCHAR(255) NOT NULL UNIQUE,
-  user_id VARCHAR(36) NOT NULL,
-  name VARCHAR(255),
-  tier ENUM('free', 'pro', 'enterprise') DEFAULT 'free',
-  rate_limit_per_minute INT DEFAULT 60,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  last_used_at TIMESTAMP NULL,
-  expires_at TIMESTAMP NULL,
-  is_active BOOLEAN DEFAULT TRUE
-);
-
--- Render Network jobs table
-CREATE TABLE render_network_jobs (
-  id VARCHAR(36) PRIMARY KEY,
-  task_id VARCHAR(36) NOT NULL,
-  render_job_id VARCHAR(255) NOT NULL,
-  status ENUM('pending', 'submitted', 'rendering', 'completed', 'failed') DEFAULT 'pending',
-  cost_rndr DECIMAL(18, 8),
-  ipfs_input_hash VARCHAR(255),
-  ipfs_output_hash VARCHAR(255),
-  submitted_at TIMESTAMP NULL,
-  completed_at TIMESTAMP NULL,
-  error_message TEXT,
-  metadata JSON
-);
-
--- Usage tracking table
-CREATE TABLE api_usage (
-  id VARCHAR(36) PRIMARY KEY,
-  api_key_id VARCHAR(36) NOT NULL,
-  endpoint VARCHAR(255) NOT NULL,
-  tokens_used INT DEFAULT 0,
-  cost_usd DECIMAL(10, 4),
-  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Testing Strategy
-- **Unit Tests**: Test each SDK method independently
-- **Integration Tests**: Test MCP server communication
-- **E2E Tests**: Test complete workflows (script → video)
-- **Load Tests**: Verify performance under concurrent requests
-- **Render Network Tests**: Test with small jobs first, then scale
-- **API Compatibility Tests**: Validate OpenAI format compliance
-
-### Documentation Requirements
-- **Architecture Diagrams**: Show MCP server topology
-- **API Reference**: Complete OpenAI-compatible API docs
-- **SDK Guides**: How to use TypeScript/Python SDKs
-- **Render Network Guide**: Setup and configuration
-- **Migration Guide**: How to upgrade from v0.3.0
-- **Cost Estimation Guide**: Render Network pricing examples
-
-## Success Criteria
-1. ✅ All MCP servers running independently with health checks
-2. ✅ Workers successfully communicate via SDKs (no direct lib/ imports)
-3. ✅ OpenAI-compatible endpoints pass compatibility tests
-4. ✅ Third-party tools (e.g., LangChain) can integrate via OpenAI API
-5. ✅ Render Network successfully processes at least one video job
-6. ✅ Hybrid routing correctly chooses local vs. Render Network
-7. ✅ Cost tracking accurately reflects Render Network usage
-8. ✅ System maintains or improves current performance benchmarks
-9. ✅ All existing features continue to work (backward compatibility)
-10. ✅ Comprehensive documentation published
-
-## Notes for GitHub Copilot
-- **Preserve existing functionality**: Do not break current features
-- **Follow TypeScript best practices**: Use strict typing, avoid `any`
-- **Maintain code style**: Follow existing ESLint configuration
-- **Use existing dependencies**: Prefer current packages (ai, zod, prisma)
-- **Add new dependencies carefully**: Document why each is needed
-- **Write self-documenting code**: Clear variable names, JSDoc comments
-- **Handle errors gracefully**: Never let errors crash the server
-- **Log important events**: Use existing logging infrastructure
-- **Consider performance**: Optimize for video production workloads
-- **Think about scale**: Design for multiple concurrent users/projects
+| Coverage area | Existing tests |
+| --- | --- |
+| Worker behavior | `tests/unit/worker/image-worker.test.ts`, `video-worker.test.ts`, `voice-worker.test.ts`, `story-to-script*.test.ts`, `script-to-storyboard*.test.ts` |
+| OpenAI-compatible logic | `tests/unit/model-gateway/*`, `tests/unit/llm/*openai-compatible*.test.ts`, `tests/unit/generators/openai-compatible-*.test.ts` |
+| Storage | `tests/unit/storage/bootstrap.test.ts`, `tests/unit/storage/factory.test.ts` |
+| API routes | `tests/integration/api/contract/*`, `tests/integration/api/specific/asset-hub-*.test.ts` |
+| Run/task integration | `tests/unit/run-runtime/*`, `tests/unit/task/*`, `tests/integration/chain/*.chain.test.ts` |
 
 ---
 
-This prompt provides comprehensive guidance for refactoring the waoowaoo platform without providing actual code implementation. It gives GitHub Copilot clear context about the current architecture and detailed requirements for the three major changes: MCP server architecture, OpenAI-compatible APIs, and Render Network integration.
----
-Based on my analysis of the waoowaoo repository, here's a comprehensive prompt for GitHub Copilot to make the architectural changes:
+## 2. Design principles for the migration
+
+1. **Do not replace the task model.** `TaskJobData`, `TaskType`, queue names, and SSE lifecycle events should remain the application-level contract.
+2. **Keep Prisma changes additive.** Existing project/media/task tables should stay intact; new tables should only support the new API and Render integrations.
+3. **Extract behind interfaces before moving code.** The first milestone is creating service contracts and client adapters while reusing existing implementations.
+4. **Use feature-flagged cutovers.** Each new MCP-backed path should be enabled by config so production can fall back to in-process execution.
+5. **Prefer shared types over duplicated request models.** The refactor should reuse `src/types/*`, `src/lib/task/types.ts`, and `src/lib/model-gateway/types.ts` where possible.
+6. **Keep transport concerns separate from domain logic.** JSON-RPC/MCP handling should live in shared transport code, not inside domain handlers.
+7. **Expand the current OpenAI-compatible code instead of building a second API stack.** The repository already has the right starting point in `src/lib/model-gateway/openai-compat/`.
 
 ---
 
-## GitHub Copilot Prompt: Refactor waoowaoo to Lightweight MCP Architecture with OpenAI Compatibility and Render Network
+## 3. Recommended target structure
 
-### Context
-The waoowaoo project is currently a monolithic Next.js application with integrated AI video production capabilities. We need to refactor it into a lightweight, modular architecture using Model Context Protocol (MCP) servers, add OpenAI-compatible API endpoints, and integrate with Render Network for distributed rendering.
+To keep the migration production-safe, keep everything in the existing TypeScript repo first. Avoid a multi-package split until the service boundaries are stable.
 
-### Current Architecture Overview
-- **Stack**: Next.js (TypeScript), MySQL (Prisma), Redis (BullMQ), MinIO storage
-- **Key Modules**: `src/lib/ai-runtime/`, `src/lib/image-generation/`, `src/lib/workflows/`, `src/lib/voice/`, `src/lib/storage/`
-- **Existing**: `src/lib/model-gateway/openai-compat/` folder with partial OpenAI compatibility
-- **Workers**: Background task processing with BullMQ queues
+### New shared foundation
 
-### Refactoring Goals
+- `src/lib/mcp/contracts.ts` — shared JSON-RPC/MCP request, response, error, and health-check types.
+- `src/lib/mcp/errors.ts` — typed transport/domain error mapping.
+- `src/lib/mcp/transport/sse.ts` — SSE server/client transport.
+- `src/lib/mcp/transport/stdio.ts` — stdio transport for local tooling.
+- `src/lib/mcp/server/base-server.ts` — common server bootstrap, tool registration, health handlers, shutdown hooks.
+- `src/lib/mcp/client/base-client.ts` — retrying typed client wrapper with request validation.
+- `src/lib/mcp/client/registry.ts` — resolves service URLs from environment and exposes health checks.
 
-#### 1. **MCP Server Architecture (Lightweight & Modular)**
-Extract monolithic `src/lib/` modules into standalone MCP servers:
-- **Script Processing MCP Server**: Extract `src/lib/ai-runtime/` logic for script parsing, splitting, and AI agent execution
-- **Image Generation MCP Server**: Extract `src/lib/image-generation/` for character/scene generation
-- **Video Production MCP Server**: Extract `src/lib/workflows/` and video processing logic
-- **Voice/Audio MCP Server**: Extract `src/lib/voice/` and `src/lib/lipsync/`
-- **Asset Management MCP Server**: Extract `src/lib/storage/` and `src/lib/asset-utils/`
+### New service entrypoints
 
-**MCP Server Requirements**:
-- Implement JSON-RPC 2.0 protocol for inter-server communication
-- Support stdio and SSE transport layers
-- Expose tools/resources via standardized MCP protocol
-- Include health check endpoints and service discovery
-- Create lightweight TypeScript SDKs for each server with connection pooling, retry logic, streaming support, and Zod validation
+- `src/mcp/script-server/index.ts`
+- `src/mcp/image-server/index.ts`
+- `src/mcp/video-server/index.ts`
+- `src/mcp/voice-server/index.ts`
+- `src/mcp/asset-server/index.ts`
 
-**Infrastructure Changes**:
-- Update `docker-compose.yml` to add separate services for each MCP server
-- Refactor workers in `src/lib/workers/` to communicate with MCP servers via SDKs instead of direct imports
-- Implement task routing logic to direct BullMQ tasks to appropriate MCP servers
+Each server should expose MCP tools/resources but initially call the existing in-repo domain modules. This keeps the first cutover low-risk.
 
-#### 2. **OpenAI-Compatible API Format**
-Expand the existing `src/lib/model-gateway/openai-compat/` implementation:
+### New SDK surface
 
-**Standard OpenAI Endpoints** (add to `src/app/api/v1/`):
-- `/v1/chat/completions` - Chat completion with streaming support
-- `/v1/completions` - Text completion
-- `/v1/images/generations` - Image generation (leverage existing `image.ts`)
-- `/v1/audio/speech` - Text-to-speech
-- `/v1/audio/transcriptions` - Speech-to-text
-- `/v1/embeddings` - Text embeddings
-- `/v1/models` - List available models
+- `src/lib/mcp/clients/script-client.ts`
+- `src/lib/mcp/clients/image-client.ts`
+- `src/lib/mcp/clients/video-client.ts`
+- `src/lib/mcp/clients/voice-client.ts`
+- `src/lib/mcp/clients/asset-client.ts`
 
-**Custom waoowaoo Extensions** (following OpenAI format patterns):
-- `/v1/videos/generations` - Video generation from scripts
-- `/v1/videos/edits` - Video editing operations
-- `/v1/storyboards/generations` - Storyboard creation
-- `/v1/scenes/generations` - Scene generation
-- `/v1/projects` - Project management
-
-**Implementation Requirements**:
-- Follow OpenAI's JSON schema for requests/responses
-- Support Server-Sent Events (SSE) for streaming (leverage existing `src/app/api/sse/`)
-- Implement OpenAI-compatible error codes and messages
-- Add `x-waoowaoo-*` custom headers for extended functionality
-- Create API key management system (generate, store securely, support multiple keys per user)
-- Implement token-based rate limiting with tier-based limits
-- Generate OpenAPI 3.0 specification with examples and Postman collection
-
-#### 3. **Render Network Integration**
-Add distributed rendering capabilities using Render Network:
-
-**Core Integration**:
-- Install Render Network SDK and configure authentication
-- Implement wallet integration for RNDR token payments
-- Create job submission abstraction layer that maps waoowaoo tasks to Render Network job formats
-- Handle job lifecycle (submit, monitor, retrieve results)
-
-**Hybrid Rendering Strategy**:
-- Implement intelligent routing logic to decide between local processing vs. Render Network based on:
-  - Job complexity and estimated render time
-  - Current queue depth
-  - Cost considerations
-  - Urgency/priority
-- Route heavy video rendering, batch image generation, 3D scenes, and long-duration processing to Render Network
-- Implement fallback to local processing if Render Network unavailable
-
-**Storage Integration**:
-- Add IPFS support for asset transfer to/from Render Network
-- Implement efficient asset caching strategy
-- Support hybrid storage (existing MinIO/S3 + IPFS)
-- Configure IPFS node and pinning service integration
-
-**Cost Management**:
-- Implement RNDR wallet balance checking and cost estimation
-- Track usage and costs in database (add `render_network_jobs` table)
-- Extend existing `BILLING_MODE` configuration to include Render Network costs
-- Add automatic alerts for low balance
-- Generate cost reports and analytics
-
-**Monitoring**:
-- Poll Render Network job status and update task status in database
-- Implement webhooks for job completion notifications
-- Add Render Network metrics to Bull Board dashboard
-- Track performance metrics (render times, cost efficiency, quality)
-
-### Environment Variables to Add
-```
-# MCP Servers
-MCP_SCRIPT_SERVER_URL=http://localhost:3001
-MCP_IMAGE_SERVER_URL=http://localhost:3002
-MCP_VIDEO_SERVER_URL=http://localhost:3003
-MCP_VOICE_SERVER_URL=http://localhost:3004
-MCP_ASSET_SERVER_URL=http://localhost:3005
-MCP_TRANSPORT=stdio|sse
-
-# OpenAI Compatibility
-OPENAI_COMPAT_ENABLED=true
-OPENAI_COMPAT_BASE_URL=/api/v1
-API_KEY_ENCRYPTION_SECRET=<secret>
-RATE_LIMIT_TIER=free|pro|enterprise
-
-# Render Network
-RENDER_NETWORK_ENABLED=true
-RENDER_NETWORK_API_KEY=<key>
-RENDER_NETWORK_WALLET_ADDRESS=<address>
-RENDER_NETWORK_WALLET_PRIVATE_KEY=<key>
-RENDER_NETWORK_IPFS_GATEWAY=https://ipfs.io
-RENDER_NETWORK_JOB_TIMEOUT_MS=3600000
-RENDER_NETWORK_MIN_BALANCE_ALERT=100
-RENDER_NETWORK_AUTO_ROUTE_THRESHOLD=high
-```
-
-### Database Schema Changes
-Add new tables to Prisma schema:
-- `api_keys` - Store OpenAI-compatible API keys with user association, scopes, rate limits
-- `render_network_jobs` - Track Render Network job submissions, status, costs
-- `api_usage` - Track API usage per key for rate limiting and billing
-
-### Implementation Phases
-**Phase 1**: Extract MCP servers, create SDKs, update workers and docker-compose
-**Phase 2**: Implement OpenAI-compatible endpoints, API key management, rate limiting, documentation
-**Phase 3**: Integrate Render Network SDK, implement hybrid routing, add IPFS storage, cost tracking, monitoring
-
-### Code Organization Principles
-- Maintain separation of concerns with clear interfaces
-- Use dependency injection for MCP server clients
-- Ensure backward compatibility with existing API endpoints
-- Make all features configuration-driven (feature flags)
-- Implement comprehensive error handling and retry logic
-- Add observability (logging, metrics, tracing) throughout
-- Write unit tests for SDKs, integration tests for MCP communication, E2E tests for workflows
-
-### Success Criteria
-- All MCP servers run independently and communicate via SDKs
-- OpenAI-compatible endpoints pass compatibility tests with standard tools (Block Goose, etc.)
-- Render Network successfully processes jobs with accurate cost tracking
-- Hybrid routing intelligently distributes workload
-- Performance maintained or improved vs. current architecture
-- Backward compatibility preserved for existing API clients
-- Comprehensive documentation for architecture, APIs, and SDKs
+These clients become the only service-facing dependency used by workers and `/api/v1` handlers.
 
 ---
 
-**Instructions for Copilot**: Please analyze the current codebase structure and generate a detailed implementation plan with file-by-file changes needed to achieve this refactoring. Focus on creating clean abstractions, maintaining type safety, and ensuring the system remains production-ready throughout the migration.
+## 4. File-by-file implementation plan
+
+## Phase 0 — shared contracts and rollout controls
+
+| File / directory | Change needed | Notes |
+| --- | --- | --- |
+| `.env.example` | Add MCP endpoint flags, cutover flags, OpenAI API flags, Render Network flags, IPFS flags. | Keep all new features disabled by default except local dev-safe toggles. |
+| `docker-compose.yml` | Add separate containers for script/image/video/voice/asset MCP services; add health checks and service dependencies. | Keep existing `app`, `mysql`, `redis`, and `minio` services. |
+| `package.json` | Add service start scripts such as `start:mcp:script`, `start:mcp:image`, etc.; add verify scripts for new route/test subsets if needed. | Avoid new build systems; use existing `tsx`/Node flow. |
+| `tsconfig.json` | Ensure new `src/lib/mcp/*` and `src/mcp/*` paths are included. | Do not weaken strictness. |
+| `vitest.config.ts` | Only update if new test roots require it. Prefer keeping new tests in existing `tests/unit` and `tests/integration` folders. | |
+| `src/lib/mcp/**` (new) | Create shared transport, contracts, client, and server bootstrap layers. | This is the main abstraction seam for the rest of the migration. |
+| `src/lib/logging/*` | Reuse current structured logging in all MCP clients and servers. | Do not create a second logging format. |
+| `src/lib/env.ts` or equivalent env helpers | Centralize parsing/validation for new MCP and Render environment variables. | All new config should validate on boot. |
+
+### Why this phase comes first
+
+The current repository already has strong domain logic but no clean transport boundary between workers and execution modules. Building the MCP transport and typed client layer first lets the team migrate worker-by-worker while preserving current behavior.
+
+---
+
+## Phase 1 — script/text processing extraction
+
+### Files to keep as canonical domain logic
+
+- `src/lib/ai-runtime/client.ts`
+- `src/lib/ai-runtime/types.ts`
+- `src/lib/workflows/story-to-script/graph.ts`
+- `src/lib/novel-promotion/story-to-script/orchestrator.ts`
+- `src/lib/workers/handlers/story-to-script.ts`
+- `src/lib/workers/handlers/analyze-novel.ts`
+- `src/lib/workers/handlers/episode-split.ts`
+- `src/lib/workers/handlers/screenplay-convert.ts`
+- `src/lib/run-runtime/*`
+
+### Planned changes
+
+| File / directory | Change needed |
+| --- | --- |
+| `src/mcp/script-server/index.ts` (new) | Register MCP tools for story analysis, episode splitting, story-to-script, screenplay conversion, and related run status queries. |
+| `src/lib/mcp/clients/script-client.ts` (new) | Add typed wrappers for each script-processing tool, streaming support for long-running steps, and retryable error mapping. |
+| `src/lib/workers/text.worker.ts` | Replace direct calls into text handlers with `script-client` calls while preserving task state updates, heartbeat logic, and SSE publishing. |
+| `src/lib/workers/handlers/story-to-script.ts` | Convert from a worker entry handler into a domain service callable by both the worker and script MCP server. |
+| `src/lib/workers/handlers/analyze-novel.ts` | Same extraction pattern; split request normalization from worker-side task bookkeeping. |
+| `src/lib/workers/handlers/episode-split.ts` | Same extraction pattern. |
+| `src/lib/workers/handlers/screenplay-convert.ts` | Same extraction pattern. |
+| `src/lib/workers/handlers/resolve-analysis-model.ts` | Reuse from the service layer; do not duplicate model resolution logic in the MCP server. |
+| `tests/unit/worker/story-to-script*.test.ts` | Update expectations to verify worker → SDK/client calls rather than worker → direct handler calls. |
+| `tests/unit/run-runtime/*` | Preserve coverage for pipeline execution so orchestration correctness stays unchanged. |
+
+### Type-safety rules for this phase
+
+- Keep `TaskJobData` unchanged; add only service-specific payload schemas near the new client/server layer.
+- Reuse `StoryToScriptGraphInput`, orchestrator result types, and pipeline graph state types instead of redefining them in the service.
+- Use Zod only at the transport boundary; keep domain modules working with existing TypeScript types internally.
+
+---
+
+## Phase 2 — image generation and asset workflows
+
+### Existing image/asset hotspots
+
+- `src/lib/image-generation/*`
+- `src/lib/generators/*`
+- `src/lib/workers/image.worker.ts`
+- `src/lib/workers/handlers/image-task-handlers.ts`
+- `src/lib/workers/handlers/image-task-handlers-core.ts`
+- `src/lib/workers/handlers/character-image-task-handler.ts`
+- `src/lib/workers/handlers/location-image-task-handler.ts`
+- `src/lib/workers/handlers/panel-image-task-handler.ts`
+- `src/lib/workers/handlers/asset-hub-image-task-handler.ts`
+- `src/lib/workers/handlers/asset-hub-ai-design.ts`
+- `src/lib/workers/handlers/asset-hub-ai-modify.ts`
+- `src/lib/workers/handlers/modify-asset-image-task-handler.ts`
+- `src/lib/workers/handlers/reference-to-character.ts`
+- `src/lib/storage/*`
+- `src/lib/asset-utils/*`
+- `src/app/api/asset-hub/**/route.ts`
+
+### Planned changes
+
+| File / directory | Change needed |
+| --- | --- |
+| `src/mcp/image-server/index.ts` (new) | Expose MCP tools for panel image generation, character generation, location generation, image modifications, and reference-to-character flows. |
+| `src/mcp/asset-server/index.ts` (new) | Expose asset CRUD, uploads, selection, folder, appearance, and voice asset tools. |
+| `src/lib/mcp/clients/image-client.ts` (new) | Add typed SDK for generation and image editing tools. |
+| `src/lib/mcp/clients/asset-client.ts` (new) | Add typed SDK for asset CRUD, uploads, metadata, and media retrieval. |
+| `src/lib/workers/image.worker.ts` | Route image tasks through `image-client` and asset-related tasks through `asset-client`. Preserve current concurrency behavior and failure mapping. |
+| `src/lib/generators/factory.ts` | Keep provider selection local, but move service-facing request normalization behind the image MCP server so workers no longer instantiate providers directly. |
+| `src/lib/generator-api.ts` | Refactor into reusable generation service methods that both internal APIs and MCP servers can call. |
+| `src/app/api/asset-hub/appearances/route.ts` and sibling routes | Thin route handlers so they validate/authenticate locally, then call `asset-client` instead of manipulating storage/image logic inline. |
+| `src/lib/storage/index.ts`, `factory.ts`, `providers/*` | Keep storage provider abstraction local to the asset service. Do not leak MinIO/S3 details across service boundaries. |
+| `tests/unit/worker/image-worker.test.ts` | Verify worker calls the image/asset SDKs and keeps task-state semantics intact. |
+| `tests/integration/api/specific/asset-hub-*.test.ts` | Use these as regression tests for thin-route behavior after the asset cutover. |
+| `tests/unit/storage/*.test.ts` | Preserve provider behavior while storage responsibilities move behind the asset service boundary. |
+
+### Clean-abstraction boundary
+
+The image service should own provider orchestration and image generation concerns. The asset service should own persistence, metadata, uploads, and media retrieval. The current code mixes those two concerns in several handlers and asset-hub routes; Phase 2 should separate them without changing route contracts.
+
+---
+
+## Phase 3 — storyboard/video and voice/audio extraction
+
+### Existing video/voice hotspots
+
+- `src/lib/workflows/script-to-storyboard/graph.ts`
+- `src/lib/novel-promotion/script-to-storyboard/*`
+- `src/lib/workers/video.worker.ts`
+- `src/lib/workers/handlers/script-to-storyboard.ts`
+- `src/lib/workers/handlers/script-to-storyboard-helpers.ts`
+- `src/lib/workers/handlers/script-to-storyboard-atomic-retry.ts`
+- `src/lib/workers/handlers/clips-build.ts`
+- `src/lib/voice/generate-voice-line.ts`
+- `src/lib/voice/provider-voice-binding.ts`
+- `src/lib/lipsync/*`
+- `src/lib/workers/voice.worker.ts`
+- `src/lib/workers/handlers/voice-analyze.ts`
+- `src/lib/workers/handlers/voice-design.ts`
+
+### Planned changes
+
+| File / directory | Change needed |
+| --- | --- |
+| `src/mcp/video-server/index.ts` (new) | Expose storyboard generation, clip building, video rendering, and future Render-backed job submission tools. |
+| `src/mcp/voice-server/index.ts` (new) | Expose voice design, voice-line synthesis, dubbing, and lipsync tools. |
+| `src/lib/mcp/clients/video-client.ts` (new) | Provide typed access to storyboard/video tools, including async polling for long-running jobs. |
+| `src/lib/mcp/clients/voice-client.ts` (new) | Provide typed access to voice/lipsync tools. |
+| `src/lib/workers/video.worker.ts` | Replace direct storyboard/video execution imports with `video-client` calls; keep task retries and job resumption logic local. |
+| `src/lib/workers/voice.worker.ts` | Replace direct voice/lipsync imports with `voice-client` calls; keep billing/task updates local. |
+| `src/lib/workflows/script-to-storyboard/graph.ts` | Preserve as domain orchestration logic and call it from the video server instead of directly from the worker. |
+| `src/lib/novel-promotion/script-to-storyboard/orchestrator.ts` | Keep as typed business logic; avoid duplicating prompt/parse rules in transport handlers. |
+| `src/lib/lipsync/preprocess.ts` and `src/lib/lipsync/providers/*` | Move behind the voice service boundary; the worker should not know provider-specific details. |
+| `tests/unit/worker/video-worker.test.ts` and `voice-worker.test.ts` | Update for SDK-backed execution while retaining current task semantics. |
+| `tests/unit/worker/video-generation-resume.test.ts` | Use as a non-regression test for async external-job polling. |
+| `tests/unit/voice/*` and `tests/unit/lipsync*.test.ts` | Preserve domain correctness while transport changes are introduced. |
+
+---
+
+## Phase 4 — OpenAI-compatible API expansion
+
+The repository already has the right seed for this in `src/lib/model-gateway/openai-compat/*`. The migration should expand that layer instead of introducing a parallel API stack.
+
+### Existing files to build on
+
+- `src/lib/model-gateway/types.ts`
+- `src/lib/model-gateway/router.ts`
+- `src/lib/model-gateway/index.ts`
+- `src/lib/model-gateway/openai-compat/chat.ts`
+- `src/lib/model-gateway/openai-compat/image.ts`
+- `src/lib/model-gateway/openai-compat/video.ts`
+- `src/lib/model-gateway/openai-compat/responses.ts`
+- `src/lib/model-gateway/openai-compat/template-image.ts`
+- `src/lib/model-gateway/openai-compat/template-video.ts`
+- `src/lib/llm/chat-completion.ts`
+- `src/lib/llm/chat-stream.ts`
+- `src/lib/api-config.ts`
+- `src/lib/generator-api.ts`
+
+### Planned changes
+
+| File / directory | Change needed |
+| --- | --- |
+| `src/app/api/v1/chat/completions/route.ts` (new) | Implement OpenAI-compatible chat endpoint backed by model gateway + script/image/video clients as appropriate. |
+| `src/app/api/v1/completions/route.ts` (new) | Add legacy text completion compatibility; keep implementation thin and reuse chat/request normalization where possible. |
+| `src/app/api/v1/images/generations/route.ts` (new) | Call the image service through `image-client`; normalize output to OpenAI image response format. |
+| `src/app/api/v1/audio/speech/route.ts` (new) | Route TTS to `voice-client`; align request/response shape with OpenAI audio semantics. |
+| `src/app/api/v1/audio/transcriptions/route.ts` (new) | Add transcription entrypoint; if a real transcription provider is not yet present, gate behind a feature flag and return a structured unsupported error until implemented. |
+| `src/app/api/v1/embeddings/route.ts` (new) | Add embeddings surface only if backed by a supported provider/model contract; otherwise defer behind config. |
+| `src/app/api/v1/models/route.ts` (new) | Return model catalog data derived from existing provider/model configuration. |
+| `src/app/api/v1/videos/generations/route.ts` (new) | Map waoowaoo video generation into OpenAI-style async job semantics via `video-client`. |
+| `src/app/api/v1/videos/edits/route.ts` (new) | Add edit flow once video edit contract is stable. |
+| `src/app/api/v1/storyboards/generations/route.ts` (new) | Expose storyboard generation using the video service. |
+| `src/app/api/v1/scenes/generations/route.ts` (new) | Optional scene-level wrapper if the internal storyboard/video service exposes a suitable primitive. |
+| `src/app/api/v1/projects/route.ts` and `src/app/api/v1/projects/[id]/route.ts` (new) | Expose a narrow external project API; do not mirror every internal project route immediately. |
+| `src/lib/model-gateway/types.ts` | Expand request/response types so `/v1` handlers can reuse them instead of defining ad hoc route-level types. |
+| `src/lib/model-gateway/openai-compat/common.ts` | Centralize auth headers, base URL normalization, id generation, error mapping, and streaming helpers. |
+| `src/lib/model-gateway/openai-compat/responses.ts` | Keep response normalization logic shared between internal tests and public `/v1` routes. |
+| `src/lib/api-auth.ts` | Extend to support API key auth for `/api/v1` without disturbing current session-based app auth. |
+| `src/lib/rate-limit.ts` | Reuse for API key tier limits instead of creating a second limiter implementation. |
+| `tests/unit/model-gateway/*` | Expand coverage for any new response formats and error mapping. |
+| `tests/unit/llm/*openai-compatible*.test.ts` | Preserve protocol correctness for streaming and non-streaming chat behavior. |
+| `tests/integration/api/contract/*` | Add route contract coverage for `/api/v1`. |
+
+### Production-readiness guardrails
+
+- Keep `/api/v1` behind `OPENAI_COMPAT_ENABLED` until the core endpoints are stable.
+- Start with `chat`, `images`, `models`, and `videos/generations`; treat `audio/transcriptions`, `embeddings`, and scene-level endpoints as staged rollouts.
+- Reuse existing observability and auth middleware patterns so the new surface matches the rest of the app.
+
+---
+
+## Phase 5 — API keys, usage tracking, and Prisma changes
+
+### Planned changes
+
+| File / directory | Change needed |
+| --- | --- |
+| `prisma/schema.prisma` | Add additive models for `ApiKey`, `ApiUsage`, and `RenderNetworkJob`. Avoid modifying existing project/media/task tables beyond optional foreign keys if absolutely required. |
+| `src/lib/crypto-utils.ts` or `src/lib/api-auth.ts` | Add API key hashing/encryption helpers using existing secure utility patterns. |
+| `src/app/api/user` or new internal admin routes | Add key-management endpoints for creating, revoking, and listing external API keys. |
+| `src/lib/billing/*` | Extend usage accounting so `/api/v1` requests and Render Network costs can be metered without bypassing current billing modes. |
+| `tests/integration/billing/*.test.ts` | Add focused coverage only where new billing/accounting paths are introduced. |
+
+### Schema guidance
+
+- Store only hashed API keys; return the raw `sk-...` value once at creation time.
+- Track usage with additive records, not mutable counters, so rate limiting, billing, and audit all share the same source.
+- Keep Render job metadata separate from `Task` rows so Render integration can evolve without destabilizing current task persistence.
+
+---
+
+## Phase 6 — Render Network integration
+
+This should be the final cutover, after the video service boundary exists. Render integration is highest-risk because it introduces external execution, asynchronous reconciliation, cost accounting, and asset transfer concerns.
+
+### Planned new modules
+
+- `src/lib/render-network/client.ts`
+- `src/lib/render-network/auth.ts`
+- `src/lib/render-network/jobs.ts`
+- `src/lib/render-network/router.ts`
+- `src/lib/render-network/webhooks.ts`
+- `src/lib/ipfs/client.ts`
+- `src/lib/ipfs/pinning.ts`
+- `src/lib/ipfs/types.ts`
+
+### Planned changes
+
+| File / directory | Change needed |
+| --- | --- |
+| `src/lib/render-network/*` (new) | Encapsulate RNDR auth, job submission, job polling, result retrieval, and cost estimation. |
+| `src/lib/ipfs/*` (new) | Encapsulate optional IPFS upload/download/pinning logic for remote asset transfer. |
+| `src/lib/mcp/clients/video-client.ts` | Add async job methods that can target either local execution or Render-backed execution. |
+| `src/mcp/video-server/index.ts` | Implement hybrid routing between local rendering and Render Network based on workload and feature flags. |
+| `src/lib/workers/video.worker.ts` | Preserve task ownership locally while delegating heavy jobs to the video service, which may further route to Render Network. |
+| `src/lib/task/service.ts` and/or `src/lib/task/reconcile.ts` | Extend reconciliation for remote-job polling so lost Render jobs do not leave tasks stuck in processing. |
+| `src/app/api/v1/videos/generations/route.ts` | Expose asynchronous video job creation/status semantics compatible with remote rendering. |
+| `prisma/schema.prisma` | Add `RenderNetworkJob` metadata model and optional foreign keys to `Task`/project entities only if necessary. |
+| `tests/unit/worker/video-generation-resume.test.ts` | Extend for remote job resume/reconcile paths. |
+| `tests/integration/chain/video.chain.test.ts` | Use as end-to-end regression coverage for storyboard → video flow after Render routing is introduced. |
+
+### Production-first rollout
+
+1. Add Render support behind `RENDER_NETWORK_ENABLED=false` by default.
+2. Start with a single workload class: heavy video renders only.
+3. Keep local execution as the default path until queue-depth and recovery behavior are proven.
+4. Treat image batching and other workloads as follow-up phases after video is stable.
+
+---
+
+## 5. What should explicitly stay unchanged during the migration
+
+These areas should remain stable unless the refactor absolutely requires local, additive changes:
+
+- `src/types/project.ts` — preserve current domain model shapes.
+- `src/lib/task/types.ts` — preserve task lifecycle and queue contracts.
+- `src/lib/task/queues.ts` — preserve queue names and routing behavior.
+- `src/lib/run-runtime/*` — keep current graph execution semantics.
+- Existing user-facing routes under `src/app/api/projects/*`, `src/app/api/tasks/*`, `src/app/api/runs/*`, and `src/app/api/sse/*` — convert them to thin clients only when needed, not all at once.
+- Existing Prisma models for project/storyboard/media entities — only additive changes should be allowed.
+
+Keeping these stable will let the team migrate domain execution without forcing simultaneous frontend, persistence, and queue rewrites.
+
+---
+
+## 6. Recommended migration order
+
+### Milestone 1: Shared foundation
+- Add `src/lib/mcp/*` contracts, clients, and server bootstrap.
+- Add env/config parsing and docker service definitions.
+- No domain cutover yet.
+
+### Milestone 2: Script service cutover
+- Stand up `script-server` around existing story/screenplay modules.
+- Switch `text.worker.ts` to `script-client`.
+- Validate task lifecycle and run-runtime behavior.
+
+### Milestone 3: Image + asset cutover
+- Extract image and asset responsibilities into separate service boundaries.
+- Switch `image.worker.ts` and `asset-hub` routes to typed clients.
+- Validate existing asset-hub integration tests.
+
+### Milestone 4: Voice + video cutover
+- Move voice/lipsync behind `voice-client`.
+- Move storyboard/video execution behind `video-client`.
+- Preserve local execution in the video service.
+
+### Milestone 5: Public `/api/v1`
+- Ship `chat`, `images`, `models`, and `videos/generations` first.
+- Add API keys, usage metering, and rate limiting.
+- Expand endpoint set only after compatibility tests are passing.
+
+### Milestone 6: Render Network
+- Add remote job abstraction, job reconciliation, and IPFS transfer.
+- Roll out to heavy video jobs only.
+- Measure recovery, cost, and queue behavior before broadening scope.
+
+---
+
+## 7. Testing and verification plan
+
+### Unit tests to add or update
+
+- `tests/unit/worker/*.test.ts` — verify workers now call SDK clients instead of domain modules directly.
+- `tests/unit/model-gateway/*.test.ts` — cover new OpenAI request/response normalization and error mapping.
+- `tests/unit/storage/*.test.ts` — ensure provider abstraction still behaves identically after asset-service extraction.
+- `tests/unit/voice/*.test.ts` and `tests/unit/lipsync*.test.ts` — ensure voice/lipsync correctness survives service extraction.
+
+### Integration tests to add or update
+
+- `tests/integration/api/contract/*` — add `/api/v1` route coverage.
+- `tests/integration/api/specific/asset-hub-*.test.ts` — keep thin-route behavior stable during the asset cutover.
+- `tests/integration/chain/*.chain.test.ts` — confirm end-to-end workflow behavior remains intact.
+
+### Operational verification
+
+- Service boot health checks for all MCP servers.
+- Worker start/shutdown behavior with remote service dependencies unavailable.
+- Task reconciliation for both local and remote execution.
+- OpenAI-compatible streaming behavior through SSE.
+- Render Network retry, cancellation, and stale-job recovery.
+
+---
+
+## 8. Production-readiness checklist
+
+Before any domain cutover is considered complete, confirm all of the following:
+
+- Feature flag exists for the new path.
+- Local fallback exists if the service or Render provider is unavailable.
+- Transport input/output is validated with typed schemas.
+- Worker task lifecycle events are unchanged.
+- Billing and usage accounting still flow through the existing billing system.
+- Logs use the current structured logging conventions.
+- Health checks and graceful shutdown are implemented.
+- Route contracts remain backward-compatible for the web app.
+- New Prisma changes are additive and migration-safe.
+- Existing regression tests for that domain still pass.
+
+---
+
+## 9. Summary
+
+The current codebase is already well-positioned for this refactor because it has three strong foundations:
+
+1. a stable task and queue model,
+2. strong shared TypeScript domain types, and
+3. an existing OpenAI-compatible gateway to extend.
+
+The highest-value implementation plan is therefore:
+
+- **extract transport and client abstractions first,**
+- **cut workers over one domain at a time,**
+- **ship `/api/v1` on top of the expanded gateway and new service clients,** and
+- **introduce Render Network only after the video service boundary is stable.**
+
+That approach keeps the system production-ready throughout the migration while still achieving the requested MCP architecture, OpenAI compatibility, and Render-backed scaling path.
