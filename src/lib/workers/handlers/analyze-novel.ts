@@ -4,12 +4,10 @@ import { prisma } from '@/lib/prisma'
 import { executeAiTextStep } from '@/lib/ai-runtime'
 import { withInternalLLMStreamCallbacks } from '@/lib/llm-observe/internal-stream-context'
 import { getArtStylePrompt, removeLocationPromptSuffix } from '@/lib/constants'
-import { reportTaskProgress } from '@/lib/workers/shared'
-import { assertTaskActive } from '@/lib/workers/utils'
-import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from './llm-stream'
 import type { TaskJobData } from '@/lib/task/types'
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompt-i18n'
 import { resolveAnalysisModel } from './resolve-analysis-model'
+import type { ScriptTaskContext, ScriptServiceCallbacks, AnalyzeNovelResponse } from '@/lib/mcp/contracts'
 
 function readText(value: unknown): string {
   return typeof value === 'string' ? value : ''
@@ -36,9 +34,19 @@ function parseJsonResponse(responseText: string): Record<string, unknown> {
   return safeParseJsonObject(responseText)
 }
 
-export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
-  const payload = (job.data.payload || {}) as Record<string, unknown>
-  const projectId = job.data.projectId
+/**
+ * Domain service for novel asset analysis (characters and locations).
+ *
+ * Accepts a portable task context and a callbacks interface so it can be
+ * invoked by the worker (via the script client) and by the MCP script server
+ * without any dependency on BullMQ job objects.
+ */
+export async function runAnalyzeNovelService(
+  context: ScriptTaskContext,
+  callbacks: ScriptServiceCallbacks,
+): Promise<AnalyzeNovelResponse> {
+  const payload = (context.payload || {}) as Record<string, unknown>
+  const projectId = context.projectId
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -65,7 +73,7 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
     throw new Error('Novel promotion data not found')
   }
   const analysisModel = await resolveAnalysisModel({
-    userId: job.data.userId,
+    userId: context.userId,
     inputModel: payload.model,
     projectAnalysisModel: novelData.analysisModel,
   })
@@ -92,7 +100,7 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
   const locationsLibName = (novelData.locations || []).map((item) => item.name).join(', ')
   const characterPromptTemplate = buildPrompt({
     promptId: PROMPT_IDS.NP_AGENT_CHARACTER_PROFILE,
-    locale: job.data.locale,
+    locale: context.locale,
     variables: {
       input: contentToAnalyze,
       characters_lib_info: charactersLibName || '无',
@@ -100,30 +108,28 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
   })
   const locationPromptTemplate = buildPrompt({
     promptId: PROMPT_IDS.NP_SELECT_LOCATION,
-    locale: job.data.locale,
+    locale: context.locale,
     variables: {
       input: contentToAnalyze,
       locations_lib_name: locationsLibName || '无',
     },
   })
 
-  await reportTaskProgress(job, 20, {
+  await callbacks.onProgress(20, {
     stage: 'analyze_novel_prepare',
     stageLabel: '准备资产分析参数',
     displayMode: 'detail',
   })
-  await assertTaskActive(job, 'analyze_novel_prepare')
+  await callbacks.assertActive('analyze_novel_prepare')
 
-  const streamContext = createWorkerLLMStreamContext(job, 'analyze_novel')
-  const streamCallbacks = createWorkerLLMStreamCallbacks(job, streamContext)
   const [characterCompletion, locationCompletion] = await (async () => {
     try {
       return await withInternalLLMStreamCallbacks(
-        streamCallbacks,
+        callbacks.stream,
         async () =>
           await Promise.all([
             executeAiTextStep({
-              userId: job.data.userId,
+              userId: context.userId,
               model: analysisModel,
               messages: [{ role: 'user', content: characterPromptTemplate }],
               temperature: 0.7,
@@ -137,7 +143,7 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
               },
             }),
             executeAiTextStep({
-              userId: job.data.userId,
+              userId: context.userId,
               model: analysisModel,
               messages: [{ role: 'user', content: locationPromptTemplate }],
               temperature: 0.7,
@@ -153,14 +159,14 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
           ]),
       )
     } finally {
-      await streamCallbacks.flush()
+      await callbacks.stream.flush()
     }
   })()
 
   const characterResponseText = characterCompletion.text
   const locationResponseText = locationCompletion.text
 
-  await reportTaskProgress(job, 60, {
+  await callbacks.onProgress(60, {
     stage: 'analyze_novel_characters_done',
     stageLabel: '角色分析完成',
     displayMode: 'detail',
@@ -172,7 +178,7 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
     output: characterResponseText,
   })
 
-  await reportTaskProgress(job, 70, {
+  await callbacks.onProgress(70, {
     stage: 'analyze_novel_locations_done',
     stageLabel: '场景分析完成',
     displayMode: 'detail',
@@ -193,12 +199,12 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
     ? (locationsData.locations as Array<Record<string, unknown>>)
     : []
 
-  await reportTaskProgress(job, 75, {
+  await callbacks.onProgress(75, {
     stage: 'analyze_novel_persist',
     stageLabel: '保存资产分析结果',
     displayMode: 'detail',
   })
-  await assertTaskActive(job, 'analyze_novel_persist')
+  await callbacks.assertActive('analyze_novel_persist')
 
   const createdCharacters: Array<{ id: string }> = []
   for (const item of parsedCharacters) {
@@ -285,11 +291,11 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
   await prisma.novelPromotionProject.update({
     where: { id: novelData.id },
     data: {
-      artStylePrompt: getArtStylePrompt(novelData.artStyle, job.data.locale) || '',
+      artStylePrompt: getArtStylePrompt(novelData.artStyle, context.locale) || '',
     },
   })
 
-  await reportTaskProgress(job, 96, {
+  await callbacks.onProgress(96, {
     stage: 'analyze_novel_done',
     stageLabel: '资产分析已完成',
     displayMode: 'detail',
@@ -302,4 +308,13 @@ export async function handleAnalyzeNovelTask(job: Job<TaskJobData>) {
     characterCount: createdCharacters.length,
     locationCount: createdLocations.length,
   }
+}
+
+/**
+ * Worker entry-point wrapper: extracts task data from the BullMQ job,
+ * creates worker-specific callbacks, and delegates to `runAnalyzeNovelService`.
+ */
+export async function handleAnalyzeNovelTask(job: Job<TaskJobData>): Promise<AnalyzeNovelResponse> {
+  const { runAnalyzeNovel } = await import('@/lib/mcp/clients/script-client')
+  return await runAnalyzeNovel(job)
 }

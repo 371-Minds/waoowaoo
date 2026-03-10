@@ -4,11 +4,8 @@ import { executeAiTextStep } from '@/lib/ai-runtime'
 import { withInternalLLMStreamCallbacks } from '@/lib/llm-observe/internal-stream-context'
 import { buildCharactersIntroduction } from '@/lib/constants'
 import { TaskTerminatedError } from '@/lib/task/errors'
-import { reportTaskProgress } from '@/lib/workers/shared'
-import { assertTaskActive } from '@/lib/workers/utils'
 import { logAIAnalysis } from '@/lib/logging/semantic'
 import { onProjectNameAvailable } from '@/lib/logging/file-writer'
-import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from './llm-stream'
 import type { TaskJobData } from '@/lib/task/types'
 import {
   type AnyObj,
@@ -17,13 +14,24 @@ import {
 } from './screenplay-convert-helpers'
 import { getPromptTemplate, PROMPT_IDS } from '@/lib/prompt-i18n'
 import { resolveAnalysisModel } from './resolve-analysis-model'
+import type { ScriptTaskContext, ScriptServiceCallbacks, ScreenplayConvertResponse } from '@/lib/mcp/contracts'
 
 const MAX_SCREENPLAY_ATTEMPTS = 2
 
-export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
-  const payload = (job.data.payload || {}) as AnyObj
-  const projectId = job.data.projectId
-  const episodeId = readText(payload.episodeId || job.data.episodeId).trim()
+/**
+ * Domain service for screenplay conversion (clip-by-clip).
+ *
+ * Accepts a portable task context and callbacks interface so it can be invoked
+ * by the worker (via the script client) and by the MCP script server without
+ * any dependency on BullMQ job objects.
+ */
+export async function runScreenplayConvertService(
+  context: ScriptTaskContext,
+  callbacks: ScriptServiceCallbacks,
+): Promise<ScreenplayConvertResponse> {
+  const payload = (context.payload || {}) as AnyObj
+  const projectId = context.projectId
+  const episodeId = readText(payload.episodeId || context.episodeId).trim()
   if (!episodeId) {
     throw new Error('episodeId is required')
   }
@@ -54,7 +62,7 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
     throw new Error('Novel promotion data not found')
   }
   const analysisModel = await resolveAnalysisModel({
-    userId: job.data.userId,
+    userId: context.userId,
     inputModel: payload.model,
     projectAnalysisModel: novelData.analysisModel,
   })
@@ -77,20 +85,18 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
     throw new Error('No clips found, please split clips first')
   }
 
-  const screenplayPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_SCREENPLAY_CONVERSION, job.data.locale)
+  const screenplayPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_SCREENPLAY_CONVERSION, context.locale)
   const charactersLibName = novelData.characters.map((item) => item.name).join('、') || '无'
   const locationsLibName = novelData.locations.map((item) => item.name).join('、') || '无'
   const charactersIntroduction = buildCharactersIntroduction(novelData.characters)
 
-  await reportTaskProgress(job, 10, {
+  await callbacks.onProgress(10, {
     stage: 'screenplay_convert_prepare',
     stageLabel: '准备剧本转换参数',
     displayMode: 'detail',
   })
-  await assertTaskActive(job, 'screenplay_convert_prepare')
+  await callbacks.assertActive('screenplay_convert_prepare')
 
-  const streamContext = createWorkerLLMStreamContext(job, 'screenplay_convert')
-  const streamCallbacks = createWorkerLLMStreamCallbacks(job, streamContext)
   const total = episode.clips.length
   const results: Array<{
     clipId: string
@@ -106,8 +112,8 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
     const stepTitle = `片段剧本转换 ${stepIndex}/${total}`
     const progress = 15 + Math.min(70, Math.floor((stepIndex / Math.max(1, total)) * 70))
 
-    await assertTaskActive(job, `screenplay_convert_step:${clip.id}`)
-    await reportTaskProgress(job, progress, {
+    await callbacks.assertActive(`screenplay_convert_step:${clip.id}`)
+    await callbacks.onProgress(progress, {
       stage: 'screenplay_convert_step',
       stageLabel: '执行剧本转换',
       displayMode: 'detail',
@@ -133,7 +139,7 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
 
       // 记录 prompt 输入
       onProjectNameAvailable(projectId, project.name)
-      logAIAnalysis(job.data.userId, 'worker', projectId, project.name, {
+      logAIAnalysis(context.userId, 'worker', projectId, project.name, {
         action: `SCREENPLAY_CONVERT_PROMPT`,
         input: { stepId, stepTitle, prompt },
         model: analysisModel,
@@ -146,10 +152,10 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
           const completion = await (async () => {
             try {
               return await withInternalLLMStreamCallbacks(
-                streamCallbacks,
+                callbacks.stream,
                 async () =>
                   await executeAiTextStep({
-                    userId: job.data.userId,
+                    userId: context.userId,
                     model: analysisModel,
                     messages: [{ role: 'user', content: prompt }],
                     reasoning: true,
@@ -165,7 +171,7 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
                   }),
               )
             } finally {
-              await streamCallbacks.flush()
+              await callbacks.stream.flush()
             }
           })()
 
@@ -175,7 +181,7 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
           }
 
           // 记录 AI 输出
-          logAIAnalysis(job.data.userId, 'worker', projectId, project.name, {
+          logAIAnalysis(context.userId, 'worker', projectId, project.name, {
             action: `SCREENPLAY_CONVERT_OUTPUT`,
             output: {
               stepId,
@@ -243,7 +249,7 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
     )
   }
 
-  await reportTaskProgress(job, 96, {
+  await callbacks.onProgress(96, {
     stage: 'screenplay_convert_done',
     stageLabel: '剧本转换结果已保存',
     displayMode: 'detail',
@@ -258,4 +264,13 @@ export async function handleScreenplayConvertTask(job: Job<TaskJobData>) {
     totalScenes,
     results,
   }
+}
+
+/**
+ * Worker entry-point wrapper: extracts task data from the BullMQ job,
+ * creates worker-specific callbacks, and delegates to `runScreenplayConvertService`.
+ */
+export async function handleScreenplayConvertTask(job: Job<TaskJobData>): Promise<ScreenplayConvertResponse> {
+  const { runScreenplayConvert } = await import('@/lib/mcp/clients/script-client')
+  return await runScreenplayConvert(job)
 }

@@ -53,7 +53,19 @@ vi.mock('@/lib/prompt-i18n', () => ({
   buildPrompt: vi.fn(() => 'analysis-prompt'),
 }))
 
-import { handleAnalyzeNovelTask } from '@/lib/workers/handlers/analyze-novel'
+/** Tracks calls made to the script-client SDK functions. */
+const scriptClientMock = vi.hoisted(() => ({
+  runAnalyzeNovel: vi.fn(async () => ({
+    success: true,
+    characters: [{ id: 'char-new-1' }],
+    locations: [{ id: 'loc-new-1' }],
+    characterCount: 1,
+    locationCount: 1,
+  })),
+}))
+vi.mock('@/lib/mcp/clients/script-client', () => scriptClientMock)
+
+import { handleAnalyzeNovelTask, runAnalyzeNovelService } from '@/lib/workers/handlers/analyze-novel'
 
 function buildJob(): Job<TaskJobData> {
   return {
@@ -71,7 +83,54 @@ function buildJob(): Job<TaskJobData> {
   } as unknown as Job<TaskJobData>
 }
 
+// ---------------------------------------------------------------------------
+// Routing test: verify the worker handler delegates to the script SDK client
+// ---------------------------------------------------------------------------
+
+describe('worker analyze-novel routing → script-client SDK', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('handleAnalyzeNovelTask delegates to scriptClient.runAnalyzeNovel', async () => {
+    const job = buildJob()
+    const result = await handleAnalyzeNovelTask(job)
+
+    expect(scriptClientMock.runAnalyzeNovel).toHaveBeenCalledWith(job)
+    expect(result).toEqual(expect.objectContaining({ success: true, characterCount: 1 }))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Domain behavior tests: verify the service function behavior end-to-end
+// ---------------------------------------------------------------------------
+
 describe('worker analyze-novel behavior', () => {
+  function buildContext() {
+    return {
+      taskId: 'task-analyze-novel-1',
+      locale: 'zh' as const,
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      userId: 'user-1',
+      payload: {},
+    }
+  }
+
+  function buildTestCallbacks() {
+    return {
+      stream: {
+        onStage: vi.fn(),
+        onChunk: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn(),
+        flush: vi.fn(async () => undefined),
+      },
+      onProgress: workerMock.reportTaskProgress as unknown as (progress: number, data: Record<string, unknown>) => Promise<void>,
+      assertActive: workerMock.assertTaskActive as unknown as (checkpoint: string) => Promise<void>,
+    }
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
 
@@ -127,11 +186,11 @@ describe('worker analyze-novel behavior', () => {
     })
     prismaMock.novelPromotionEpisode.findFirst.mockResolvedValueOnce({ novelText: '' })
 
-    await expect(handleAnalyzeNovelTask(buildJob())).rejects.toThrow('请先填写全局资产设定或剧本内容')
+    await expect(runAnalyzeNovelService(buildContext(), buildTestCallbacks())).rejects.toThrow('请先填写全局资产设定或剧本内容')
   })
 
   it('success path -> creates character/location and persists cleaned location descriptions', async () => {
-    const result = await handleAnalyzeNovelTask(buildJob())
+    const result = await runAnalyzeNovelService(buildContext(), buildTestCallbacks())
 
     expect(result).toEqual({
       success: true,
@@ -175,7 +234,6 @@ describe('worker analyze-novel behavior', () => {
     })
 
     expect(workerMock.reportTaskProgress).toHaveBeenCalledWith(
-      expect.anything(),
       60,
       expect.objectContaining({
         stepId: 'analyze_characters',
@@ -185,7 +243,6 @@ describe('worker analyze-novel behavior', () => {
     )
 
     expect(workerMock.reportTaskProgress).toHaveBeenCalledWith(
-      expect.anything(),
       70,
       expect.objectContaining({
         stepId: 'analyze_locations',

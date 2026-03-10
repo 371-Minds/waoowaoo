@@ -23,6 +23,18 @@ const helpersMock = vi.hoisted(() => ({
   parseScreenplayPayload: vi.fn(() => ({ scenes: [{ index: 1 }] })),
 }))
 
+/** Tracks calls made to the script-client SDK functions. */
+const scriptClientMock = vi.hoisted(() => ({
+  runScreenplayConvert: vi.fn(async () => ({
+    episodeId: 'episode-1',
+    total: 1,
+    successCount: 1,
+    failCount: 0,
+    totalScenes: 1,
+    results: [{ clipId: 'clip-1', success: true, sceneCount: 1 }],
+  })),
+}))
+
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/llm-client', () => llmMock)
 vi.mock('@/lib/llm-observe/internal-stream-context', () => ({
@@ -53,8 +65,9 @@ vi.mock('@/lib/prompt-i18n', () => ({
   PROMPT_IDS: { NP_SCREENPLAY_CONVERSION: 'np_screenplay_conversion' },
   getPromptTemplate: vi.fn(() => 'screenplay-template-{clip_content}-{clip_id}'),
 }))
+vi.mock('@/lib/mcp/clients/script-client', () => scriptClientMock)
 
-import { handleScreenplayConvertTask } from '@/lib/workers/handlers/screenplay-convert'
+import { handleScreenplayConvertTask, runScreenplayConvertService } from '@/lib/workers/handlers/screenplay-convert'
 
 function buildJob(payload: Record<string, unknown>, episodeId: string | null = 'episode-1'): Job<TaskJobData> {
   return {
@@ -71,6 +84,53 @@ function buildJob(payload: Record<string, unknown>, episodeId: string | null = '
     },
   } as unknown as Job<TaskJobData>
 }
+
+function buildContext(payload: Record<string, unknown>, episodeId: string | null = 'episode-1') {
+  return {
+    taskId: 'task-screenplay-1',
+    locale: 'zh' as const,
+    projectId: 'project-1',
+    episodeId,
+    userId: 'user-1',
+    payload,
+  }
+}
+
+function buildTestCallbacks() {
+  return {
+    stream: {
+      onStage: vi.fn(),
+      onChunk: vi.fn(),
+      onComplete: vi.fn(),
+      onError: vi.fn(),
+      flush: vi.fn(async () => undefined),
+    },
+    onProgress: vi.fn(async () => undefined),
+    assertActive: vi.fn(async () => undefined),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Routing test: verify the worker handler delegates to the script SDK client
+// ---------------------------------------------------------------------------
+
+describe('worker screenplay-convert routing → script-client SDK', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('handleScreenplayConvertTask delegates to scriptClient.runScreenplayConvert', async () => {
+    const job = buildJob({ episodeId: 'episode-1' })
+    const result = await handleScreenplayConvertTask(job)
+
+    expect(scriptClientMock.runScreenplayConvert).toHaveBeenCalledWith(job)
+    expect(result).toEqual(expect.objectContaining({ episodeId: 'episode-1', successCount: 1 }))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Domain behavior tests: verify the service function behavior end-to-end
+// ---------------------------------------------------------------------------
 
 describe('worker screenplay-convert behavior', () => {
   beforeEach(() => {
@@ -102,13 +162,15 @@ describe('worker screenplay-convert behavior', () => {
   })
 
   it('missing episodeId -> explicit error', async () => {
-    const job = buildJob({}, null)
-    await expect(handleScreenplayConvertTask(job)).rejects.toThrow('episodeId is required')
+    const context = buildContext({}, null)
+    const callbacks = buildTestCallbacks()
+    await expect(runScreenplayConvertService(context, callbacks)).rejects.toThrow('episodeId is required')
   })
 
   it('success path -> writes screenplay json to clip row', async () => {
-    const job = buildJob({ episodeId: 'episode-1' })
-    const result = await handleScreenplayConvertTask(job)
+    const context = buildContext({ episodeId: 'episode-1' })
+    const callbacks = buildTestCallbacks()
+    const result = await runScreenplayConvertService(context, callbacks)
 
     expect(result).toEqual(expect.objectContaining({
       episodeId: 'episode-1',
@@ -135,7 +197,8 @@ describe('worker screenplay-convert behavior', () => {
       throw new Error('invalid screenplay payload')
     })
 
-    const job = buildJob({ episodeId: 'episode-1' })
-    await expect(handleScreenplayConvertTask(job)).rejects.toThrow('SCREENPLAY_CONVERT_PARTIAL_FAILED')
+    const context = buildContext({ episodeId: 'episode-1' })
+    const callbacks = buildTestCallbacks()
+    await expect(runScreenplayConvertService(context, callbacks)).rejects.toThrow('SCREENPLAY_CONVERT_PARTIAL_FAILED')
   })
 })
