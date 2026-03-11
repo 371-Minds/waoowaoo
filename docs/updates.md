@@ -120,6 +120,21 @@ The current repository already has strong domain logic but no clean transport bo
 
 ## Phase 1 — script/text processing extraction
 
+### Current progress
+
+Phase 1 has reached its first cutover milestone and is no longer just planned work.
+
+- The shared MCP foundation from Phase 0 is in place under `src/lib/mcp/*`.
+- `src/mcp/script-server/index.ts` now exists and exposes the initial script/text MCP tool surface.
+- `src/lib/mcp/clients/script-client.ts` now provides the typed worker-facing SDK for script/text tasks.
+- `src/lib/workers/text.worker.ts` now routes the script/text task family through `script-client`, while preserving existing task lifecycle, heartbeat, and SSE behavior.
+- The script/text handlers have been split so the same domain services can be called in-process or through the MCP server.
+
+### Remaining follow-up
+
+- Add more direct test coverage around the shared MCP transport/foundation pieces introduced in Phase 0.
+- Improve server-side progress/log streaming so remote execution has parity with the in-process worker path.
+
 ### Files to keep as canonical domain logic
 
 - `src/lib/ai-runtime/client.ts`
@@ -156,6 +171,17 @@ The current repository already has strong domain logic but no clean transport bo
 ---
 
 ## Phase 2 — image generation and asset workflows
+
+### Kickoff status
+
+Phase 2 is the current implementation focus. The next increment should follow the same extraction pattern that Phase 1 established: keep existing image and asset domain logic in place, add typed MCP clients/servers around it, and then switch workers/routes over behind feature flags.
+
+### Immediate next slice
+
+1. Add `src/lib/mcp/clients/image-client.ts` and `src/lib/mcp/clients/asset-client.ts`.
+2. Add `src/mcp/image-server/index.ts` and `src/mcp/asset-server/index.ts`.
+3. Split image/asset worker handlers into reusable service functions so they can be called by both workers and MCP servers.
+4. Route `src/lib/workers/image.worker.ts` and the `src/app/api/asset-hub/**/route.ts` family through the new clients without changing existing route contracts.
 
 ### Existing image/asset hotspots
 
