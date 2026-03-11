@@ -24,6 +24,8 @@
     "start:watchdog": "tsx --env-file=.env scripts/watchdog.ts",
     "start:board": "tsx --env-file=.env scripts/bull-board.ts",
     "start:mcp:script": "tsx --env-file=.env src/mcp/script-server/index.ts",
+    "start:mcp:image": "tsx --env-file=.env src/mcp/image-server/index.ts",
+    "start:mcp:asset": "tsx --env-file=.env src/mcp/asset-server/index.ts",
     "stats:errors": "tsx scripts/task-error-stats.ts",
     "check:api-handler": "node scripts/guards/api-route-contract-guard.mjs",
     "check:logs": "tsx scripts/check-no-console.ts",

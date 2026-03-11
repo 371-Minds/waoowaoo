@@ -17,8 +17,14 @@ const SERVICE_URL_ENV: Record<McpServiceName, string> = {
   asset: 'ASSET_MCP_URL',
 }
 
-/** Feature-flag env var that must be `'true'` for HTTP mode to be active. */
-const ENABLED_ENV = 'SCRIPT_MCP_ENABLED'
+/** Feature-flag env vars that must be `'true'` for HTTP mode to be active per service. */
+const ENABLED_ENV: Record<McpServiceName, string> = {
+  script: 'SCRIPT_MCP_ENABLED',
+  image: 'IMAGE_MCP_ENABLED',
+  video: 'VIDEO_MCP_ENABLED',
+  voice: 'VOICE_MCP_ENABLED',
+  asset: 'ASSET_MCP_ENABLED',
+}
 
 // ---------------------------------------------------------------------------
 // URL resolution
@@ -41,7 +47,23 @@ export function resolveMcpServiceUrl(service: McpServiceName): string | null {
  * whether to go through the HTTP client or fall back to in-process execution.
  */
 export function isScriptMcpEnabled(): boolean {
-  return process.env[ENABLED_ENV] === 'true' && resolveMcpServiceUrl('script') !== null
+  return process.env[ENABLED_ENV.script] === 'true' && resolveMcpServiceUrl('script') !== null
+}
+
+/**
+ * Returns `true` when image MCP HTTP mode is enabled via feature flag AND the
+ * image service URL is configured.
+ */
+export function isImageMcpEnabled(): boolean {
+  return process.env[ENABLED_ENV.image] === 'true' && resolveMcpServiceUrl('image') !== null
+}
+
+/**
+ * Returns `true` when asset MCP HTTP mode is enabled via feature flag AND the
+ * asset service URL is configured.
+ */
+export function isAssetMcpEnabled(): boolean {
+  return process.env[ENABLED_ENV.asset] === 'true' && resolveMcpServiceUrl('asset') !== null
 }
 
 // ---------------------------------------------------------------------------
