@@ -8,15 +8,12 @@ import {
 import { withInternalLLMStreamCallbacks } from '@/lib/llm-observe/internal-stream-context'
 import { logAIAnalysis } from '@/lib/logging/semantic'
 import { onProjectNameAvailable } from '@/lib/logging/file-writer'
-import { reportTaskProgress } from '@/lib/workers/shared'
-import { assertTaskActive } from '@/lib/workers/utils'
 import {
   type StoryToScriptStepMeta,
   type StoryToScriptStepOutput,
   type StoryToScriptOrchestratorResult,
 } from '@/lib/novel-promotion/story-to-script/orchestrator'
 import { runStoryToScriptGraph } from '@/lib/workflows/story-to-script/graph'
-import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from './llm-stream'
 import type { TaskJobData } from '@/lib/task/types'
 import {
   asString,
@@ -32,6 +29,7 @@ import { getPromptTemplate, PROMPT_IDS } from '@/lib/prompt-i18n'
 import { resolveAnalysisModel } from './resolve-analysis-model'
 import { createArtifact, listArtifacts } from '@/lib/run-runtime/service'
 import { parseScreenplayPayload } from './screenplay-convert-helpers'
+import type { ScriptTaskContext, ScriptServiceCallbacks, StoryToScriptResponse } from '@/lib/mcp/contracts'
 
 function isReasoningEffort(value: unknown): value is 'minimal' | 'low' | 'medium' | 'high' {
   return value === 'minimal' || value === 'low' || value === 'medium' || value === 'high'
@@ -43,10 +41,20 @@ function resolveRetryClipId(retryStepKey: string): string | null {
   return clipId || null
 }
 
-export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
-  const payload = (job.data.payload || {}) as AnyObj
-  const projectId = job.data.projectId
-  const episodeIdRaw = asString(payload.episodeId || job.data.episodeId || '')
+/**
+ * Domain service for story-to-script pipeline execution.
+ *
+ * Accepts a portable task context and a callbacks interface so it can be
+ * invoked by the worker (via the script client) and by the MCP script server
+ * without any dependency on BullMQ job objects.
+ */
+export async function runStoryToScriptService(
+  context: ScriptTaskContext,
+  callbacks: ScriptServiceCallbacks,
+): Promise<StoryToScriptResponse> {
+  const payload = (context.payload || {}) as AnyObj
+  const projectId = context.projectId
+  const episodeIdRaw = asString(payload.episodeId || context.episodeId || '')
   const episodeId = episodeIdRaw.trim()
   const contentRaw = asString(payload.content)
   const inputModel = asString(payload.model).trim()
@@ -104,18 +112,18 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
   }
 
   const model = await resolveAnalysisModel({
-    userId: job.data.userId,
+    userId: context.userId,
     inputModel,
     projectAnalysisModel: novelData.analysisModel,
   })
   const [llmCapabilityOptions, workflowConcurrency] = await Promise.all([
     resolveProjectModelCapabilityGenerationOptions({
       projectId,
-      userId: job.data.userId,
+      userId: context.userId,
       modelType: 'llm',
       modelKey: model,
     }),
-    getUserWorkflowConcurrencyConfig(job.data.userId),
+    getUserWorkflowConcurrencyConfig(context.userId),
   ])
   const capabilityReasoningEffort = llmCapabilityOptions.reasoningEffort
   const reasoningEffort = requestedReasoningEffort
@@ -128,19 +136,16 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
   const maxLength = 30000
   const content = mergedContent.length > maxLength ? mergedContent.slice(0, maxLength) : mergedContent
 
-  await reportTaskProgress(job, 10, {
+  await callbacks.onProgress(10, {
     stage: 'story_to_script_prepare',
     stageLabel: 'progress.stage.storyToScriptPrepare',
     displayMode: 'detail',
   })
 
-  const characterPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_AGENT_CHARACTER_PROFILE, job.data.locale)
-  const locationPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_SELECT_LOCATION, job.data.locale)
-  const clipPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_AGENT_CLIP, job.data.locale)
-  const screenplayPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_SCREENPLAY_CONVERSION, job.data.locale)
-
-  const streamContext = createWorkerLLMStreamContext(job, 'story_to_script')
-  const callbacks = createWorkerLLMStreamCallbacks(job, streamContext)
+  const characterPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_AGENT_CHARACTER_PROFILE, context.locale)
+  const locationPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_SELECT_LOCATION, context.locale)
+  const clipPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_AGENT_CLIP, context.locale)
+  const screenplayPromptTemplate = getPromptTemplate(PROMPT_IDS.NP_SCREENPLAY_CONVERSION, context.locale)
 
   const runStep = async (
     meta: StoryToScriptStepMeta,
@@ -151,9 +156,9 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
     void _maxOutputTokens
     const stepAttempt = meta.stepAttempt
       || (retryStepKey && meta.stepId === retryStepKey ? retryStepAttempt : 1)
-    await assertTaskActive(job, `story_to_script_step:${meta.stepId}`)
+    await callbacks.assertActive(`story_to_script_step:${meta.stepId}`)
     const progress = 15 + Math.min(55, Math.floor((meta.stepIndex / Math.max(1, meta.stepTotal)) * 55))
-    await reportTaskProgress(job, progress, {
+    await callbacks.onProgress(progress, {
       stage: 'story_to_script_step',
       stageLabel: 'progress.stage.storyToScriptStep',
       displayMode: 'detail',
@@ -171,14 +176,14 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
     })
 
     // Log prompt input
-    logAIAnalysis(job.data.userId, 'worker', projectId, project.name, {
+    logAIAnalysis(context.userId, 'worker', projectId, project.name, {
       action: `STORY_TO_SCRIPT_PROMPT:${action}`,
       input: { stepId: meta.stepId, stepTitle: meta.stepTitle, prompt },
       model,
     })
 
     const output = await executeAiTextStep({
-      userId: job.data.userId,
+      userId: context.userId,
       model,
       messages: [{ role: 'user', content: prompt }],
       projectId,
@@ -192,10 +197,10 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
       reasoningEffort,
     })
     // Ensure this step's stream terminal events are flushed before the orchestrator moves on.
-    await callbacks.flush()
+    await callbacks.stream.flush()
 
     // Log AI response output (full raw text included for debugging)
-    logAIAnalysis(job.data.userId, 'worker', projectId, project.name, {
+    logAIAnalysis(context.userId, 'worker', projectId, project.name, {
       action: `STORY_TO_SCRIPT_OUTPUT:${action}`,
       output: {
         stepId: meta.stepId,
@@ -277,11 +282,11 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
       const stepOutput = await (async () => {
         try {
           return await withInternalLLMStreamCallbacks(
-            callbacks,
+            callbacks.stream,
             async () => await runStep(stepMeta, screenplayPrompt, 'screenplay_conversion', 2200),
           )
         } finally {
-          await callbacks.flush()
+          await callbacks.stream.flush()
         }
       })()
       screenplay = parseScreenplayPayload(stepOutput.text)
@@ -344,7 +349,7 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
       },
     })
 
-    await reportTaskProgress(job, 96, {
+    await callbacks.onProgress(96, {
       stage: 'story_to_script_persist_done',
       stageLabel: 'progress.stage.storyToScriptPersistDone',
       displayMode: 'detail',
@@ -371,11 +376,11 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
   const pipelineState = await (async () => {
     try {
       return await withInternalLLMStreamCallbacks(
-        callbacks,
+        callbacks.stream,
         async () => await runStoryToScriptGraph({
           runId,
           projectId,
-          userId: job.data.userId,
+          userId: context.userId,
           concurrency: workflowConcurrency.analysis,
           content,
           baseCharacters: (novelData.characters || []).map((item) => item.name),
@@ -394,7 +399,7 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
         }),
       )
     } finally {
-      await callbacks.flush()
+      await callbacks.stream.flush()
     }
   })()
 
@@ -458,13 +463,13 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
     )
   }
 
-  await reportTaskProgress(job, 80, {
+  await callbacks.onProgress(80, {
     stage: 'story_to_script_persist',
     stageLabel: 'progress.stage.storyToScriptPersist',
     displayMode: 'detail',
   })
 
-  await assertTaskActive(job, 'story_to_script_persist')
+  await callbacks.assertActive('story_to_script_persist')
 
   // Re-verify episode still exists before persisting — it may have been deleted
   // while AI steps were running, which would cause a Prisma foreign key error.
@@ -513,7 +518,7 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
     })
   }
 
-  await reportTaskProgress(job, 96, {
+  await callbacks.onProgress(96, {
     stage: 'story_to_script_persist_done',
     stageLabel: 'progress.stage.storyToScriptPersistDone',
     displayMode: 'detail',
@@ -528,4 +533,16 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
     persistedLocations: createdLocations.length,
     persistedClips: createdClipRows.length,
   }
+}
+
+/**
+ * Worker entry-point wrapper: extracts task data from the BullMQ job,
+ * creates worker-specific callbacks, and delegates to `runStoryToScriptService`.
+ *
+ * This wrapper exists so that the domain service can also be called directly by
+ * the MCP script server without any BullMQ dependency.
+ */
+export async function handleStoryToScriptTask(job: Job<TaskJobData>): Promise<StoryToScriptResponse> {
+  const { runStoryToScript } = await import('@/lib/mcp/clients/script-client')
+  return await runStoryToScript(job)
 }

@@ -54,6 +54,21 @@ const helperMock = vi.hoisted(() => ({
   persistClips: vi.fn(async () => [{ clipKey: 'clip-1', id: 'clip-row-1' }]),
 }))
 
+/** Tracks calls made to the script-client SDK functions. */
+const scriptClientMock = vi.hoisted(() => ({
+  runStoryToScript: vi.fn(async () => ({
+    episodeId: 'episode-1',
+    clipCount: 1,
+    screenplaySuccessCount: 1,
+    screenplayFailedCount: 0,
+    persistedCharacters: 1,
+    persistedLocations: 1,
+    persistedClips: 1,
+  })),
+}))
+
+vi.mock('@/lib/mcp/clients/script-client', () => scriptClientMock)
+
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/llm-client', () => ({
   chatCompletion: vi.fn(),
@@ -101,7 +116,7 @@ vi.mock('@/lib/workers/handlers/story-to-script-helpers', () => ({
   resolveClipRecordId: (clipIdMap: Map<string, string>, clipId: string) => clipIdMap.get(clipId) ?? null,
 }))
 
-import { handleStoryToScriptTask } from '@/lib/workers/handlers/story-to-script'
+import { handleStoryToScriptTask, runStoryToScriptService } from '@/lib/workers/handlers/story-to-script'
 
 function buildJob(payload: Record<string, unknown>, episodeId: string | null = 'episode-1'): Job<TaskJobData> {
   const runId = typeof payload.runId === 'string' && payload.runId.trim() ? payload.runId.trim() : 'run-test-story'
@@ -130,6 +145,32 @@ function buildJob(payload: Record<string, unknown>, episodeId: string | null = '
     },
   } as unknown as Job<TaskJobData>
 }
+
+// ---------------------------------------------------------------------------
+// Routing tests: verify the worker handler delegates to the script SDK client
+// ---------------------------------------------------------------------------
+
+describe('worker story-to-script routing → script-client SDK', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('handleStoryToScriptTask delegates to scriptClient.runStoryToScript', async () => {
+    const job = buildJob({ episodeId: 'episode-1', content: 'input content' })
+    const result = await handleStoryToScriptTask(job)
+
+    expect(scriptClientMock.runStoryToScript).toHaveBeenCalledWith(job)
+    expect(result).toEqual(expect.objectContaining({
+      episodeId: 'episode-1',
+      clipCount: 1,
+      screenplaySuccessCount: 1,
+    }))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Domain behavior tests: verify the service function behavior end-to-end
+// ---------------------------------------------------------------------------
 
 describe('worker story-to-script behavior', () => {
   beforeEach(() => {
@@ -173,14 +214,42 @@ describe('worker story-to-script behavior', () => {
     })
   })
 
+  function buildContext(overrides: Record<string, unknown> = {}, episodeId: string | null = 'episode-1') {
+    const runId = typeof overrides.runId === 'string' && overrides.runId.trim() ? overrides.runId.trim() : 'run-test-story'
+    return {
+      taskId: 'task-story-to-script-1',
+      locale: 'zh' as const,
+      projectId: 'project-1',
+      episodeId,
+      userId: 'user-1',
+      payload: { ...overrides, runId, meta: { runId } },
+    }
+  }
+
+  function buildTestCallbacks() {
+    return {
+      stream: {
+        onStage: vi.fn(),
+        onChunk: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn(),
+        flush: vi.fn(async () => undefined),
+      },
+      onProgress: vi.fn(async () => undefined),
+      assertActive: vi.fn(async () => undefined),
+    }
+  }
+
   it('missing episodeId -> explicit error', async () => {
-    const job = buildJob({}, null)
-    await expect(handleStoryToScriptTask(job)).rejects.toThrow('episodeId is required')
+    const context = buildContext({}, null)
+    const callbacks = buildTestCallbacks()
+    await expect(runStoryToScriptService(context, callbacks)).rejects.toThrow('episodeId is required')
   })
 
   it('success path -> persists clips and screenplay with concrete fields', async () => {
-    const job = buildJob({ episodeId: 'episode-1', content: 'input content' })
-    const result = await handleStoryToScriptTask(job)
+    const context = buildContext({ episodeId: 'episode-1', content: 'input content' })
+    const callbacks = buildTestCallbacks()
+    const result = await runStoryToScriptService(context, callbacks)
 
     expect(result).toEqual({
       episodeId: 'episode-1',
@@ -224,7 +293,8 @@ describe('worker story-to-script behavior', () => {
       },
     })
 
-    const job = buildJob({ episodeId: 'episode-1', content: 'input content' })
-    await expect(handleStoryToScriptTask(job)).rejects.toThrow('STORY_TO_SCRIPT_PARTIAL_FAILED')
+    const context = buildContext({ episodeId: 'episode-1', content: 'input content' })
+    const callbacks = buildTestCallbacks()
+    await expect(runStoryToScriptService(context, callbacks)).rejects.toThrow('STORY_TO_SCRIPT_PARTIAL_FAILED')
   })
 })

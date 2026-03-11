@@ -4,13 +4,11 @@ import { prisma } from '@/lib/prisma'
 import { executeAiTextStep } from '@/lib/ai-runtime'
 import { countWords } from '@/lib/word-count'
 import { withInternalLLMStreamCallbacks } from '@/lib/llm-observe/internal-stream-context'
-import { reportTaskProgress } from '@/lib/workers/shared'
-import { assertTaskActive } from '@/lib/workers/utils'
 import { getUserModelConfig } from '@/lib/config-service'
 import { createTextMarkerMatcher } from '@/lib/novel-promotion/story-to-script/clip-matching'
-import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from './llm-stream'
 import type { TaskJobData } from '@/lib/task/types'
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompt-i18n'
+import type { ScriptTaskContext, ScriptServiceCallbacks, EpisodeSplitResponse } from '@/lib/mcp/contracts'
 
 type EpisodeSplit = {
   number?: number
@@ -55,9 +53,19 @@ function toValidBoundaryIndex(value: unknown, textLength: number): number | null
   return idx
 }
 
-export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
-  const payload = (job.data.payload || {}) as Record<string, unknown>
-  const projectId = job.data.projectId
+/**
+ * Domain service for episode splitting.
+ *
+ * Accepts a portable task context and callbacks interface so it can be invoked
+ * by the worker (via the script client) and by the MCP script server without
+ * any dependency on BullMQ job objects.
+ */
+export async function runEpisodeSplitService(
+  context: ScriptTaskContext,
+  callbacks: ScriptServiceCallbacks,
+): Promise<EpisodeSplitResponse> {
+  const payload = (context.payload || {}) as Record<string, unknown>
+  const projectId = context.projectId
   const content = typeof payload.content === 'string' ? payload.content : ''
   if (!content || content.length < 100) {
     throw new Error('文本太短，至少需要 100 字')
@@ -85,7 +93,7 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
     throw new Error('Novel promotion data not found')
   }
 
-  const userConfig = await getUserModelConfig(job.data.userId)
+  const userConfig = await getUserModelConfig(context.userId)
   const analysisModel = userConfig.analysisModel
   if (!analysisModel) {
     throw new Error('请先在设置页面配置分析模型')
@@ -93,22 +101,20 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
 
   const promptBase = buildPrompt({
     promptId: PROMPT_IDS.NP_EPISODE_SPLIT,
-    locale: job.data.locale,
+    locale: context.locale,
     variables: {
       CONTENT: content,
     },
   })
   const prompt = `${promptBase}${EPISODE_SPLIT_BOUNDARY_SUFFIX}`
 
-  await reportTaskProgress(job, 20, {
+  await callbacks.onProgress(20, {
     stage: 'episode_split_prepare',
     stageLabel: '准备分集参数',
     displayMode: 'detail',
   })
-  await assertTaskActive(job, 'episode_split_prepare')
+  await callbacks.assertActive('episode_split_prepare')
 
-  const streamContext = createWorkerLLMStreamContext(job, 'episode_split')
-  const streamCallbacks = createWorkerLLMStreamCallbacks(job, streamContext)
   type EpisodeOutput = {
     number: number
     title: string
@@ -122,12 +128,12 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
   try {
     for (let attempt = 1; attempt <= MAX_EPISODE_SPLIT_ATTEMPTS; attempt += 1) {
       try {
-        await assertTaskActive(job, `episode_split_attempt:${attempt}`)
+        await callbacks.assertActive(`episode_split_attempt:${attempt}`)
         const completion = await withInternalLLMStreamCallbacks(
-          streamCallbacks,
+          callbacks.stream,
           async () =>
             await executeAiTextStep({
-              userId: job.data.userId,
+              userId: context.userId,
               model: analysisModel,
               messages: [{ role: 'user', content: prompt }],
               temperature: 0.3,
@@ -150,12 +156,12 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
           throw new Error('AI 返回为空')
         }
 
-        await reportTaskProgress(job, 60, {
+        await callbacks.onProgress(60, {
           stage: 'episode_split_parse',
           stageLabel: attempt === 1 ? '解析分集结果' : `解析分集结果（重试 ${attempt - 1}）`,
           displayMode: 'detail',
         })
-        await assertTaskActive(job, 'episode_split_parse')
+        await callbacks.assertActive('episode_split_parse')
 
         const splitResult = parseSplitResponse(aiResponse)
         const splitEpisodes = splitResult.episodes || []
@@ -163,7 +169,7 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
           throw new Error('分集结果为空')
         }
 
-        await reportTaskProgress(job, 80, {
+        await callbacks.onProgress(80, {
           stage: 'episode_split_match',
           stageLabel: '匹配剧集内容范围',
           displayMode: 'detail',
@@ -173,7 +179,7 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
         let searchFrom = 0
 
         for (let idx = 0; idx < splitEpisodes.length; idx += 1) {
-          await assertTaskActive(job, `episode_split_match:${idx + 1}`)
+          await callbacks.assertActive(`episode_split_match:${idx + 1}`)
           const ep = splitEpisodes[idx]
           const episodeNumber =
             typeof ep.number === 'number' && Number.isFinite(ep.number) && ep.number > 0
@@ -240,14 +246,14 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
       }
     }
   } finally {
-    await streamCallbacks.flush()
+    await callbacks.stream.flush()
   }
 
   if (!episodes) {
     throw lastError || new Error('分集边界匹配失败')
   }
 
-  await reportTaskProgress(job, 96, {
+  await callbacks.onProgress(96, {
     stage: 'episode_split_done',
     stageLabel: '智能分集完成',
     displayMode: 'detail',
@@ -257,4 +263,13 @@ export async function handleEpisodeSplitTask(job: Job<TaskJobData>) {
     success: true,
     episodes,
   }
+}
+
+/**
+ * Worker entry-point wrapper: extracts task data from the BullMQ job,
+ * creates worker-specific callbacks, and delegates to `runEpisodeSplitService`.
+ */
+export async function handleEpisodeSplitTask(job: Job<TaskJobData>): Promise<EpisodeSplitResponse> {
+  const { runEpisodeSplit } = await import('@/lib/mcp/clients/script-client')
+  return await runEpisodeSplit(job)
 }

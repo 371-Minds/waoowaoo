@@ -21,19 +21,21 @@ import {
 import { getProjectModelConfig } from '@/lib/config-service'
 import { reportTaskProgress, reportTaskStreamChunk, withTaskLifecycle } from './shared'
 import { assertTaskActive } from './utils'
-import { handleStoryToScriptTask } from './handlers/story-to-script'
 import { handleScriptToStoryboardTask } from './handlers/script-to-storyboard'
 import { handleVoiceAnalyzeTask } from './handlers/voice-analyze'
 import { handleAssetHubAIDesignTask } from './handlers/asset-hub-ai-design'
 import { handleClipsBuildTask } from './handlers/clips-build'
-import { handleAnalyzeNovelTask } from './handlers/analyze-novel'
-import { handleScreenplayConvertTask } from './handlers/screenplay-convert'
-import { handleEpisodeSplitTask } from './handlers/episode-split'
 import { handleAnalyzeGlobalTask } from './handlers/analyze-global'
 import { handleAssetHubAIModifyTask } from './handlers/asset-hub-ai-modify'
 import { handleReferenceToCharacterTask } from './handlers/reference-to-character'
 import { handleShotAITask } from './handlers/shot-ai-tasks'
 import { handleCharacterProfileTask } from './handlers/character-profile'
+import {
+  runStoryToScript,
+  runAnalyzeNovel,
+  runEpisodeSplit,
+  runScreenplayConvert,
+} from '@/lib/mcp/clients/script-client'
 
 type AnyObj = Record<string, unknown>
 type JsonRecord = Record<string, unknown>
@@ -608,19 +610,19 @@ async function processTextTask(job: Job<TaskJobData>) {
 
   switch (job.data.type) {
     case TASK_TYPE.STORY_TO_SCRIPT_RUN:
-      return await handleStoryToScriptTask(job)
+      return await runStoryToScript(job)
     case TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN:
       return await handleScriptToStoryboardTask(job)
     case TASK_TYPE.VOICE_ANALYZE:
       return await handleVoiceAnalyzeTask(job)
     case TASK_TYPE.ANALYZE_NOVEL:
-      return await handleAnalyzeNovelTask(job)
+      return await runAnalyzeNovel(job)
     case TASK_TYPE.CLIPS_BUILD:
       return await handleClipsBuildTask(job)
     case TASK_TYPE.SCREENPLAY_CONVERT:
-      return await handleScreenplayConvertTask(job)
+      return await runScreenplayConvert(job)
     case TASK_TYPE.EPISODE_SPLIT_LLM:
-      return await handleEpisodeSplitTask(job)
+      return await runEpisodeSplit(job)
     case TASK_TYPE.ANALYZE_GLOBAL:
       return await handleAnalyzeGlobalTask(job)
     case TASK_TYPE.AI_CREATE_CHARACTER:

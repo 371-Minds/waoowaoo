@@ -96,6 +96,9 @@ services:
       QUEUE_CONCURRENCY_VIDEO: "50"
       QUEUE_CONCURRENCY_VOICE: "20"
       QUEUE_CONCURRENCY_TEXT: "50"
+      # MCP Services (Phase 1) — disabled by default; enable with SCRIPT_MCP_ENABLED=true
+      SCRIPT_MCP_ENABLED: "false"
+      SCRIPT_MCP_URL: "http://script-server:4001"
       # Bull Board
       BULL_BOARD_HOST: "0.0.0.0"
       BULL_BOARD_PORT: "3010"
@@ -143,6 +146,42 @@ services:
         echo '') &
         npm run start
       "
+
+  # ==================== Script MCP Server (Phase 1 — disabled by default) ====================
+  # Enable by setting SCRIPT_MCP_ENABLED=true in the app service environment and
+  # un-commenting the profile below (or running: docker compose --profile mcp up).
+  script-server:
+    image: ghcr.io/saturndec/waoowaoo:latest
+    container_name: waoowaoo-script-server
+    restart: unless-stopped
+    profiles:
+      - mcp
+    environment:
+      DATABASE_URL: "mysql://root:waoowaoo123@mysql:3306/waoowaoo"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: ""
+      REDIS_PASSWORD: ""
+      REDIS_TLS: ""
+      STORAGE_TYPE: minio
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_REGION: "us-east-1"
+      MINIO_BUCKET: "waoowaoo"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_FORCE_PATH_STYLE: "true"
+      SCRIPT_MCP_PORT: "4001"
+      LOG_SERVICE: "waoowaoo-script-server"
+      LOG_LEVEL: "INFO"
+      LOG_FORMAT: "json"
+    ports:
+      - "14001:4001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run start:mcp:script
 
 volumes:
   mysql_data:

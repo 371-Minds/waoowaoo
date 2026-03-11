@@ -23,6 +23,7 @@
     "start:worker": "tsx --env-file=.env src/lib/workers/index.ts",
     "start:watchdog": "tsx --env-file=.env scripts/watchdog.ts",
     "start:board": "tsx --env-file=.env scripts/bull-board.ts",
+    "start:mcp:script": "tsx --env-file=.env src/mcp/script-server/index.ts",
     "stats:errors": "tsx scripts/task-error-stats.ts",
     "check:api-handler": "node scripts/guards/api-route-contract-guard.mjs",
     "check:logs": "tsx scripts/check-no-console.ts",
