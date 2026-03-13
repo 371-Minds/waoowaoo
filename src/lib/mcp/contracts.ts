@@ -206,3 +206,117 @@ export type ScreenplayConvertResponse = {
     error?: string
   }>
 }
+
+// ---------------------------------------------------------------------------
+// Image service contracts
+// ---------------------------------------------------------------------------
+
+/**
+ * Portable task context for image generation tasks.  Carries everything a
+ * handler needs without binding it to a BullMQ Job object.
+ */
+export type ImageTaskContext = {
+  taskId: string
+  /** Task type constant from TASK_TYPE (e.g. 'image_character'). */
+  type: string
+  locale: string
+  projectId: string
+  userId: string
+  targetId: string | null
+  payload: Record<string, unknown>
+  trace?: Record<string, unknown> | null
+}
+
+/** Generic result wrapper returned by all image task tools. */
+export type ImageGenerationResponse = {
+  success: boolean
+  /** Handler-specific result fields; shape varies by task type. */
+  result: Record<string, unknown>
+}
+
+// Typed aliases for the most common image tool responses.
+
+/** Result of a character appearance image generation task. */
+export type GenerateCharacterImageResponse = {
+  /** Database ID of the updated CharacterAppearance record. */
+  appearanceId: string
+  /** Total number of image slots written (may be more than 1 for batch generation). */
+  imageCount: number
+  /** COS key / URL of the primary (selected) image, or null if none was set. */
+  imageUrl: string | null
+}
+
+/** Result of a location image generation task. */
+export type GenerateLocationImageResponse = {
+  /** Number of location-image records updated. */
+  updated: number
+  /** Unique list of location IDs whose images were regenerated. */
+  locationIds: string[]
+}
+
+/** Result of a storyboard panel image generation task. */
+export type GeneratePanelImageResponse = {
+  /** Database ID of the updated NovelPromotionPanel record. */
+  panelId: string
+  /** Number of candidate images generated (1 or more based on the task payload). */
+  candidateCount: number
+  /** COS key of the primary image when this was the first generation; null for subsequent regenerations (candidates are stored separately). */
+  imageUrl: string | null
+}
+
+/** Result of a storyboard panel variant generation task. */
+export type GeneratePanelVariantResponse = {
+  /** Database ID of the new panel record that received the variant image. */
+  panelId: string
+  /** Storyboard ID the panel belongs to. */
+  storyboardId: string
+  /** COS key of the generated variant image. */
+  imageUrl: string | null
+}
+
+/** Result of an AI-driven image modification task (character, location, or storyboard panel). */
+export type ModifyAssetImageResponse = {
+  /** Asset type that was modified: 'character' | 'location' | 'storyboard'. */
+  type: string
+  /** COS key of the modified image. */
+  imageUrl: string
+  /** Set when type is 'character'; database ID of the updated CharacterAppearance record. */
+  appearanceId?: string
+  /** Set when type is 'location'; database ID of the updated LocationImage record. */
+  locationImageId?: string
+  /** Set when type is 'storyboard'; database ID of the updated NovelPromotionPanel record. */
+  panelId?: string
+}
+
+// ---------------------------------------------------------------------------
+// Asset service contracts
+// ---------------------------------------------------------------------------
+
+/**
+ * Portable context for asset-hub image generation and modification tasks.
+ */
+export type AssetTaskContext = {
+  taskId: string
+  /** Task type constant from TASK_TYPE (e.g. 'asset_hub_image'). */
+  type: string
+  locale: string
+  userId: string
+  projectId: string
+  targetId: string | null
+  payload: Record<string, unknown>
+  trace?: Record<string, unknown> | null
+}
+
+export type AssetHubImageResponse = {
+  type: string
+  appearanceId?: string
+  locationId?: string
+  imageCount: number
+}
+
+export type AssetHubModifyResponse = {
+  type: string
+  imageUrl: string
+  appearanceId?: string
+  locationImageId?: string
+}

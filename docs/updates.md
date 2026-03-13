@@ -172,16 +172,24 @@ Phase 1 has reached its first cutover milestone and is no longer just planned wo
 
 ## Phase 2 — image generation and asset workflows
 
-### Kickoff status
+### Current progress
 
-Phase 2 is the current implementation focus. The next increment should follow the same extraction pattern that Phase 1 established: keep existing image and asset domain logic in place, add typed MCP clients/servers around it, and then switch workers/routes over behind feature flags.
+Phase 2 has reached its first cutover milestone.
 
-### Immediate next slice
+- `src/lib/mcp/contracts.ts` has been extended with `ImageTaskContext`, `AssetTaskContext`, and all image/asset response types.
+- `src/lib/mcp/client/registry.ts` now exposes `isImageMcpEnabled()` and `isAssetMcpEnabled()` alongside the existing `isScriptMcpEnabled()`.
+- `src/lib/mcp/clients/image-client.ts` provides the typed worker-facing SDK for image tasks (character, location, panel, panel-variant, and asset-image modification), following the same feature-flagged in-process/remote pattern established in Phase 1.
+- `src/lib/mcp/clients/asset-client.ts` provides the typed worker-facing SDK for asset-hub image generation and modification tasks.
+- `src/mcp/image-server/index.ts` exists and registers all image generation/modification tools.
+- `src/mcp/asset-server/index.ts` exists and registers all asset-hub tools.
+- `.env.example` has been updated with `IMAGE_MCP_ENABLED`, `IMAGE_MCP_URL`, `IMAGE_MCP_PORT`, `ASSET_MCP_ENABLED`, `ASSET_MCP_URL`, and `ASSET_MCP_PORT`.
 
-1. Add `src/lib/mcp/clients/image-client.ts` and `src/lib/mcp/clients/asset-client.ts`.
-2. Add `src/mcp/image-server/index.ts` and `src/mcp/asset-server/index.ts`.
-3. Split image/asset worker handlers into reusable service functions so they can be called by both workers and MCP servers.
-4. Route `src/lib/workers/image.worker.ts` and the `src/app/api/asset-hub/**/route.ts` family through the new clients without changing existing route contracts.
+### Remaining follow-up
+
+- Split image/asset handlers into `(context, callbacks)` service functions (as was done for script handlers in Phase 1) so that the MCP server no longer needs to construct a mock BullMQ job.
+- Route `src/lib/workers/image.worker.ts` through `image-client` and `asset-client` (worker still calls handlers directly; the clients provide the routing layer but the worker import has not been updated yet).
+- Add test coverage for the new image/asset client routing, mirroring the approach used for the script-client tests.
+- Thin the `src/app/api/asset-hub/**/route.ts` family to call `asset-client` instead of inline storage/image logic.
 
 ### Existing image/asset hotspots
 
